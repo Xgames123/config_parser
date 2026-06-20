@@ -1,34 +1,41 @@
 # config_parser
 
-Parser and serde like derive macros for a mostly kdl compatible configuration format.
+A fast, mostly-KDL-compatible configuration parser for Rust with serde-style derive macros.
 
-## Reason for existence
+`config_parser` focuses on ergonomic configuration parsing, good diagnostics, and features that are difficult to express with existing KDL libraries, such as robust flattening support and generic types.
 
-This crate is created because the main kdl library for rust currently is [knus](https://crates.io/crates/knus) which lacks a proper `#[knus(flatten)]` and also doesn't work great when your types have generics.
+## Why?
 
-The main alternative for knus would have been facet-kdl but it is deprecated now.
+The existing KDL ecosystem has a few limitations:
+
+- [`knus`](https://crates.io/crates/knus) does not currently provide a general-purpose `#[knus(flatten)]` equivalent.
+- Generic types can be awkward to work with in derive-based parsers.
+- [`facet-kdl`](https://crates.io/crates/facet-kdl) has been deprecated.
+
+`config_parser` exists to provide a more ergonomic alternative while remaining largely compatible with KDL syntax.
 
 ## Features
 
-- Fancy errors with miette
-- Parses 25x than libkdl
-- serde like derive syntax
-- `#[config(flatten)]` Which works in almost all contexts.
+- Fast parser implementation (~25× faster than `libkdl` on my machine)
+- Serde-style derive macros
+- `#[config(flatten)]` support in most contexts
+- Fancy errors powered by `miette`
+- Source span support
 
-## Todo
+## Roadmap
 
-- [ ] Better documentation
-- [ ] Support more of kdl
+- [ ] Improve documentation and examples
+- [ ] Expand KDL compatibility
 
-## kdl compatibility
+## Supported KDL Syntax
 
-This is the kdl syntax that is currently implemented:
+The following syntax is currently supported:
 
 ```kdl
-
 my_node properties_are_supported=#true {
-    quoted-string "i am quoted"
-    ident-string i_am_ident // ident strings can only contain ascii: a-z_- (which is different from the kdl spec)
+    quoted-string "i am quoted" // ident strings can only contain ascii: a-z_- (which is different from the kdl spec)
+    ident-string i_am_ident
+
     bool #true
     number 1
     hex-number 0xf
@@ -37,23 +44,24 @@ my_node properties_are_supported=#true {
 
     inline-comments /* inline comments are supported */ #true
 }
-
 ```
 
-## Errors
+## Error Reporting
 
-To make the fancy errors work. the "fancy" feature needs to be enabled on miette. This can be done by adding the following code to your Cargo.toml file.
+For enhanced diagnostics, enable the `fancy` feature of `miette`:
 
-`Cargo.toml`
+**Cargo.toml**
 
 ```toml
 [dependencies]
-miette = { version="7.2.0", features=["fancy"] }
+miette = { version = "7.2.0", features = ["fancy"] }
 ```
 
-Also the source_code is not automatically attached to the error by `from_str` This can be done like this:
+`config_parser::from_str` does not automatically attach source code to errors. To display fancy diagnostics, attach the source manually:
 
 ```rust
+use miette::Report;
+
 let parsed = config_parser::from_str(source_code).unwrap_or_else(|e| {
     panic!(
         "{:?}",
@@ -62,17 +70,33 @@ let parsed = config_parser::from_str(source_code).unwrap_or_else(|e| {
 });
 ```
 
-## Spans
+## Span Information
 
-`ParseConfigValue` is implemented for `parsey::Spanned<T>` so you can get span information like this:
+`ParseConfigValue` is implemented for `parsey::Spanned<T>` (re-exported as `config_parser::Spanned`), allowing easy access span information:
 
 ```rust
-use config_parser::Spanned; // parsey::Spanned is reexported
+use config_parser::Spanned;
 
 #[derive(ConfigNode)]
 struct MyNode {
     #[config(property)]
     my_value: Spanned<String>,
 }
+```
 
+## Benchmarks
+
+The following benchmark measures parsing the same configuration file using both `libkdl` and `config_parser`. the source of the benchmark is located at `config_parser_test/main.rs`
+
+> **Note:** This is not a perfectly apples-to-apples comparison. `libkdl` supports additional features, including document editing capabilities, which may affect performance.
+
+| Crate           |             Mean Time |
+| --------------- | --------------------: |
+| `libkdl`        | 410,071 ns ± 6,903 ns |
+| `config_parser` |  16,219 ns ± 1,275 ns |
+
+To reproduce the results:
+
+```bash
+cargo +nightly bench
 ```
