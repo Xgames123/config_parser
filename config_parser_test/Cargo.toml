@@ -1,0 +1,12 @@
+[package]
+name = "config_parser_test"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+description.workspace = true
+repository.workspace = true
+
+[dependencies]
+miette={version="7.6.0", features=["fancy"]}
+config_parser={path="../config_parser", features=["derive"]}
+kdl={version="6.5.0"}

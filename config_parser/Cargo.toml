@@ -1,0 +1,17 @@
+[package]
+name = "config_parser"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+description.workspace = true
+repository.workspace = true
+
+[dependencies]
+miette = { version = "7.6.0" }
+parsey= {path="../parsey", features=["miette"]}
+thiserror = "2.0.18"
+config_parser_derive = { path="../config_parser_derive", optional=true }
+
+[features]
+derive=["dep:config_parser_derive"]
+

@@ -1,0 +1,11 @@
+my_node properties_are_supported=#true {
+    quoted-string "i am quoted"
+    ident-string i_am_ident // note ident strings can only contain ascii: a-z_-
+    bool #true
+    number 1
+    hex-number 0xf
+    bin-number 0b00
+    float-number 0.5
+
+    inline-comments /*are supported*/ #true
+}

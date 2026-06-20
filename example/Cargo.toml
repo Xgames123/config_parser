@@ -1,0 +1,11 @@
+[package]
+name = "example"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+description.workspace = true
+repository.workspace = true
+
+[dependencies]
+config_parser={path="../config_parser", features=["derive"]}
+miette={version="7.6.0", features=["fancy"] }

@@ -1,0 +1,3 @@
+[submodule "parsey"]
+	path = parsey
+	url = git@github.com:Xgames123/parsey

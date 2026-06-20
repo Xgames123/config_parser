@@ -1,0 +1,15 @@
+[workspace]
+resolver="1"
+
+members=["config_parser", "config_parser_derive", "config_parser_test", "example", "parsey"]
+
+[workspace.package]
+version = "1.0.0"
+authors = ["ldev <ldev@ldev.eu.org>"]
+edition = "2024"
+description = "Parser and serde like derive macros for a mostly kdl compatible configuration format."
+repository = "https://github.com/Xgames123/config_parser"
+readme = "README.md"
+license = "MIT"
+keywords = ["kdl", "parser", "parsing","configuration", "config"]
+categories = ["config"]
