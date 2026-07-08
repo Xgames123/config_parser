@@ -32,6 +32,8 @@ impl FieldAttributes {
                         Some(FieldHandeling::Arguments)
                     }else if meta.path.is_ident("skip") {
                         Some(FieldHandeling::Skip)
+                    }else if meta.path.is_ident("node_name") {
+                        Some(FieldHandeling::NodeName)
                     } else { None };
 
                     if let Some(new_handeling) = new_handeling {
@@ -52,7 +54,7 @@ impl FieldAttributes {
                         default = DefaultHandeling::DefaultTrait;
                         return Ok(());
                     }
-                    Err(meta.error("Unknown attribute valid attributes are: child, children, property, argument, arguments, rename, default and flatten"))
+                    Err(meta.error("Unknown attribute valid attributes are: child, children, property, argument, arguments, rename, default, flatten and node_name"))
                 })?;
             }
         }
@@ -69,6 +71,7 @@ pub enum FieldHandeling {
     Arguments,
     Flatten,
     Skip,
+    NodeName,
 }
 
 pub enum DefaultHandeling {

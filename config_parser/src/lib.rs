@@ -1,87 +1,16 @@
-use crate::parse::{ConfigNode, ConfigValue, ConfigValueType, Document, SyntaxError};
-use miette::{Diagnostic, SourceSpan};
-use parsey::Span;
 use std::path::PathBuf;
-use std::{borrow::Cow, rc::Rc, sync::Arc};
-use thiserror::Error;
+use std::{rc::Rc, sync::Arc};
 
+mod config_node;
+mod config_value;
+mod document;
+mod error;
 pub mod parse;
 
 #[cfg(feature = "derive")]
 pub use config_parser_derive::{ConfigNode, ConfigValue};
-pub use parsey::Spanned;
+pub use {config_node::*, config_value::*, document::*, error::*, parsey::Spanned};
 
-pub type Result<T, E = ConfigError> = std::result::Result<T, E>;
-
-#[derive(Debug, Error, Diagnostic)]
-pub enum ConfigError {
-    #[error("Syntax error")]
-    Syntax {
-        #[diagnostic_source]
-        inner: SyntaxError,
-    },
-
-    #[error("Expected type {expected} but found {found}")]
-    Type {
-        #[label("Expected {expected}")]
-        span: SourceSpan,
-
-        expected: ConfigValueType,
-        found: ConfigValueType,
-    },
-
-    #[error("Missing child node: {node_name}.")]
-    ExpectedChild {
-        #[label("Parent")]
-        parent: SourceSpan,
-        node_name: Box<str>,
-    },
-
-    #[error("Missing property: {prop_name}.")]
-    ExpectedProperty {
-        #[label("On this node.")]
-        node: SourceSpan,
-        prop_name: Box<str>,
-    },
-
-    #[error("Expected at least {expected} argument(s), found {found}.")]
-    ExpectedArgument {
-        #[label("On this node.")]
-        node: SourceSpan,
-
-        expected: usize,
-        found: usize,
-    },
-
-    #[error("Expected {expected} argument(s), found {found}.")]
-    TooManyArguments {
-        #[label("Superfluous argument.")]
-        arg: SourceSpan,
-
-        expected: usize,
-        found: usize,
-    },
-
-    #[error("Unexpected node type. Available node types are: {expected:?}")]
-    UnexpectedNodeExpect {
-        #[label("Unexpected node")]
-        span: SourceSpan,
-        expected: &'static [&'static str],
-    },
-
-    #[error("Expected no more nodes but found one.")]
-    UnexpectedNode {
-        #[label("Unexpected node")]
-        span: SourceSpan,
-    },
-
-    #[error("{message}")]
-    Message {
-        #[label("{message}")]
-        span: SourceSpan,
-        message: Cow<'static, str>,
-    },
-}
 /// Parses a config string into a T
 ///
 /// Note: You need to manually attach the miette source code to the error returned by this function.
@@ -98,65 +27,24 @@ pub fn from_str<'c, T: ParseConfigNode<'c>>(str: &'c str) -> Result<T, ConfigErr
     doc.parse_into::<T>()
 }
 
-impl ConfigError {
-    pub fn type_error(value: &Spanned<ConfigValue>, expected: ConfigValueType) -> Self {
-        Self::Type {
-            span: value.span.clone().into(),
-            expected: expected,
-            found: value.ty(),
-        }
-    }
-    pub fn expected_child(parent: &ConfigNode, child: impl Into<Box<str>>) -> Self {
-        Self::ExpectedChild {
-            parent: parent.name.span.clone().into(),
-            node_name: child.into(),
-        }
-    }
-    pub fn expected_property(node: &ConfigNode, property: impl Into<Box<str>>) -> Self {
-        Self::ExpectedProperty {
-            node: node.name.span.clone().into(),
-            prop_name: property.into(),
-        }
-    }
-    pub fn unexpected_node(node: &ConfigNode, expected: &'static [&'static str]) -> Self {
-        if expected.len() == 0 {
-            Self::UnexpectedNode {
-                span: node.name.span.clone().into(),
-            }
-        } else {
-            Self::UnexpectedNodeExpect {
-                span: node.name.span.clone().into(),
-                expected,
-            }
-        }
-    }
-    pub fn message(span: impl Into<Span>, message: impl Into<Cow<'static, str>>) -> Self {
-        Self::Message {
-            span: span.into().into(),
-            message: message.into(),
-        }
-    }
-
-    pub fn is_expect_item_error(&self) -> bool {
-        match self {
-            Self::ExpectedChild { .. } => true,
-            Self::ExpectedProperty { .. } => true,
-            Self::ExpectedArgument { .. } => true,
-            _ => false,
-        }
-    }
-}
-
 pub trait ParseConfigValue<'c>: Sized {
     fn consume_value(value: Spanned<ConfigValue<'c>>) -> Result<Self>;
 }
 
 pub trait ParseConfigNode<'c>: Sized {
+    /// Returns true if this node should be parsed as the provided node.
+    /// Most implementations just check the name of the node and let the system throw an error
+    /// during parsing for missing properties, arguments and child nodes.
     fn match_node(node: &ConfigNode<'c>) -> bool;
+
+    /// Consumes the node into this type.
+    /// the parameter `terminate` indicates if the node should be terminated by the function.
+    /// After a node is terminated it can't be consumed further anymore and an error is thrown if it
+    /// was not fully consumed.
     fn consume_node(node: &mut ConfigNode<'c>, terminate: bool) -> Result<Self>;
 }
 
-// impls
+// impls for common types
 
 impl<'c, T: ParseConfigValue<'c>> ParseConfigValue<'c> for Spanned<T> {
     fn consume_value(value: Spanned<ConfigValue<'c>>) -> Result<Self> {

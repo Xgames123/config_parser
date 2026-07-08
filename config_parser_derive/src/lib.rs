@@ -3,10 +3,12 @@ use quote::quote;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{Attribute, Data, DeriveInput, Fields, Generics, WherePredicate, parse_macro_input};
+use syn::{
+    Attribute, Data, DeriveInput, Fields, Generics, Ident, WherePredicate, parse_macro_input,
+};
 
 use crate::{
-    attributes::{FieldAttributes, FieldHandeling},
+    attributes::{field::FieldAttributes, field::FieldHandeling, variant::VariantAttributes},
     case::pascal_to_kebab,
 };
 
@@ -30,11 +32,11 @@ fn impl_config_node(input: DeriveInput) -> syn::Result<TokenStream> {
     let name = input.ident;
 
     let mut generics = input.generics;
-    gen_where_generics(input.attrs, &mut generics)?;
+    gen_where_generics(&input.attrs, &mut generics)?;
     let (_, ty_generics, where_clause) = generics.split_for_impl();
     let impl_generics = &generics.params;
 
-    let (match_node, self_init) = gen_code(&input.data)?;
+    let (match_node, self_init) = gen_code(&name, &input.attrs, &input.data)?;
 
     Ok(quote! {
         impl<'c, #impl_generics> config_parser::ParseConfigNode<'c> for #name #ty_generics #where_clause {
@@ -71,7 +73,7 @@ fn impl_config_value(input: DeriveInput) -> syn::Result<TokenStream> {
     let name = input.ident;
 
     let mut generics = input.generics;
-    gen_where_generics(input.attrs, &mut generics)?;
+    gen_where_generics(&input.attrs, &mut generics)?;
     let (_, ty_generics, where_clause) = generics.split_for_impl();
     let impl_generics = &generics.params;
 
@@ -129,7 +131,7 @@ fn gen_value_code(data: Data) -> syn::Result<TokenStream> {
     }
 }
 
-fn gen_where_generics(attributes: Vec<Attribute>, generics: &mut Generics) -> syn::Result<()> {
+fn gen_where_generics(attributes: &[Attribute], generics: &mut Generics) -> syn::Result<()> {
     let where_c = generics.make_where_clause();
 
     for attr in attributes.iter() {
@@ -149,40 +151,51 @@ fn gen_where_generics(attributes: Vec<Attribute>, generics: &mut Generics) -> sy
     Ok(())
 }
 
-fn gen_code(data: &Data) -> syn::Result<(TokenStream, TokenStream)> {
+fn gen_code(
+    name: &Ident,
+    attributes: &[Attribute],
+    data: &Data,
+) -> syn::Result<(TokenStream, TokenStream)> {
     match data {
         Data::Struct(data) => {
+            let variant_attributes = VariantAttributes::parse(attributes)?;
+            let node_name_expr = variant_attributes.node_name_expr(&name);
             let self_init = gen_constructor(&data.fields)?;
-            Ok((quote!(true), quote!(Self #self_init)))
+            Ok((quote!(#node_name_expr), quote!(Self #self_init)))
         }
         Data::Enum(e) => {
-            let variant_names = e
+            let variant_node_name_exprs = e
                 .variants
                 .iter()
-                .map(|v| pascal_to_kebab(v.ident.to_string()))
-                .collect::<Vec<String>>();
+                .map(|v| {
+                    VariantAttributes::parse(&v.attrs).map(|vattr| vattr.node_name_expr(&v.ident))
+                })
+                .collect::<syn::Result<Vec<TokenStream>>>()?;
 
             let variants = e
                 .variants
                 .iter()
-                .zip(variant_names.iter())
-                .map(|(variant, variant_name)| {
+                .zip(variant_node_name_exprs)
+                .map(|(variant, node_name_expr)| {
                     let variant_ident = &variant.ident;
                     let self_init = gen_constructor(&variant.fields)?;
                     Ok(quote! {
-                        #variant_name => Self::#variant_ident #self_init
+                        else if #node_name_expr {
+                            return Ok(Self::#variant_ident #self_init)
+                        }
                     })
                 })
                 .collect::<syn::Result<Vec<TokenStream>>>()?;
 
             Ok((
                 quote! {
-                    [#(#variant_names),*].contains(&node.name.inner)
+                    false #(|| #variant_node_name_exprs )*
                 },
                 quote! {
-                    match node.name.inner {
-                        #(#variants,)*
-                        name=>return Err(config_parser::ConfigError::unexpected_node(node, &[#(#variant_names),*]))
+                    if false {}
+                    #(#variants)*
+                    else {
+                        return Err(config_parser::ConfigError::unexpected_node(node, &[#(#variant_names),*]))
                     }
                 },
             ))
@@ -208,7 +221,7 @@ fn gen_constructor(fields: &Fields) -> syn::Result<TokenStream> {
 
                 field_inits.push(match handeling {
                     FieldHandeling::Child => {
-                        quote! {#field: node.consume_child(#field_name).map(|mut node| config_parser::ParseConfigNode::consume_node(&mut node, false))#default_handeling? }
+                        quote! {#field: node.consume_optional_child_into::<#field_ty>(#field_name)?#default_handeling }
                     }
                     FieldHandeling::Children => {
                         quote! {#field: node.consume_children_into::<_, #field_ty>(#field_name)?}
@@ -227,6 +240,9 @@ fn gen_constructor(fields: &Fields) -> syn::Result<TokenStream> {
                     }
                     FieldHandeling::Skip => {
                         quote! {#field: std::default::Default::default()}
+                    },
+                    FieldHandeling::NodeName => {
+                        quote!{#field: node.name.inner.into() }
                     }
                 })
             }
