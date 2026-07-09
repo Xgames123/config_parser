@@ -1,7 +1,7 @@
 [workspace]
 resolver="1"
 
-members=["config_parser", "config_parser_derive", "config_parser_test", "example", "parsey"]
+members=["config_parser", "config_parser_derive", "config_parser_test", "parsey"]
 
 [workspace.package]
 version = "1.0.0"

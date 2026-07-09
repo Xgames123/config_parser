@@ -98,14 +98,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "example"
-version = "1.0.0"
-dependencies = [
- "config_parser",
- "miette",
-]
-
-[[package]]
 name = "gimli"
 version = "0.32.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

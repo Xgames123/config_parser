@@ -4,7 +4,8 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
 use syn::{
-    Attribute, Data, DeriveInput, Fields, Generics, Ident, WherePredicate, parse_macro_input,
+    Attribute, Data, DeriveInput, Fields, Generics, Ident, WherePredicate, parenthesized,
+    parse_macro_input,
 };
 
 use crate::{
@@ -30,21 +31,26 @@ pub fn derive_config_node(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 
 fn impl_config_node(input: DeriveInput) -> syn::Result<TokenStream> {
     let name = input.ident;
+    let mut variant_attributes = VariantAttributes::parse(&input.attrs)?;
 
     let mut generics = input.generics;
-    gen_where_generics(&input.attrs, &mut generics)?;
+    let where_clause = generics.make_where_clause();
+    if let Some(impl_where) = variant_attributes.impl_where.take() {
+        impl_where.extend_where_clause(where_clause);
+    }
     let (_, ty_generics, where_clause) = generics.split_for_impl();
     let impl_generics = &generics.params;
 
-    let (match_node, self_init) = gen_code(&name, &input.attrs, &input.data)?;
+    let (allowed_node_names, self_init) = gen_code(&name, variant_attributes, &input.data)?;
 
     Ok(quote! {
         impl<'c, #impl_generics> config_parser::ParseConfigNode<'c> for #name #ty_generics #where_clause {
-            fn match_node(node: &config_parser::parse::ConfigNode<'c>) -> bool {
-                #match_node
+
+            fn allowed_node_names() -> config_parser::AllowedNodeNames<impl Iterator<Item = &'static str>+Clone> {
+                #allowed_node_names
             }
 
-            fn consume_node(node: &mut config_parser::parse::ConfigNode<'c>, terminate: bool) -> config_parser::Result<Self> {
+            fn consume_node(node: &mut config_parser::ConfigNode<'c>, terminate: bool) -> config_parser::Result<Self> {
                 let me = #self_init;
                 if terminate {
                     node.terminate()?;
@@ -71,9 +77,13 @@ pub fn derive_config_value(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
 fn impl_config_value(input: DeriveInput) -> syn::Result<TokenStream> {
     let name = input.ident;
+    let mut variant_attributes = VariantAttributes::parse(&input.attrs)?;
 
     let mut generics = input.generics;
-    gen_where_generics(&input.attrs, &mut generics)?;
+    let where_clause = generics.make_where_clause();
+    if let Some(impl_where) = variant_attributes.impl_where.take() {
+        impl_where.extend_where_clause(where_clause);
+    }
     let (_, ty_generics, where_clause) = generics.split_for_impl();
     let impl_generics = &generics.params;
 
@@ -81,7 +91,7 @@ fn impl_config_value(input: DeriveInput) -> syn::Result<TokenStream> {
 
     Ok(quote! {
         impl<'c, #impl_generics> config_parser::ParseConfigValue<'c> for #name #ty_generics #where_clause {
-            fn consume_value(value: config_parser::parse::Spanned<config_parser::parse::ConfigValue<'c>>) -> config_parser::Result<Self> {
+            fn consume_value(value: config_parser::Spanned<config_parser::ConfigValue<'c>>) -> config_parser::Result<Self> {
                 #code
             }
         }
@@ -117,7 +127,7 @@ fn gen_value_code(data: Data) -> syn::Result<TokenStream> {
             }
 
             Ok(quote! {
-                match value.inner.as_str().ok_or(config_parser::ConfigError::type_error(&value, config_parser::parse::ConfigValueType::String))? {
+                match value.inner.as_str().ok_or(config_parser::ConfigError::type_error(&value, config_parser::ConfigValueType::String))? {
                     #(#option_names => Ok(#option_constructors),)*
                     val=>Err(config_parser::ConfigError::message(value.span, format!(concat!("Invalid value '{}'. Valid options are: ", #(#option_names),*), val)))
                 }
@@ -131,71 +141,50 @@ fn gen_value_code(data: Data) -> syn::Result<TokenStream> {
     }
 }
 
-fn gen_where_generics(attributes: &[Attribute], generics: &mut Generics) -> syn::Result<()> {
-    let where_c = generics.make_where_clause();
-
-    for attr in attributes.iter() {
-        if attr.path().is_ident("config") {
-            attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident("impl_where") {
-                    let added_predicates =
-                        Punctuated::<WherePredicate, Comma>::parse_terminated(meta.value()?)?;
-                    where_c.predicates.extend(added_predicates);
-                    Ok(())
-                } else {
-                    Err(meta.error("Only impl_where attribute is valid on a struct/enum"))
-                }
-            })?;
-        }
-    }
-    Ok(())
-}
-
 fn gen_code(
     name: &Ident,
-    attributes: &[Attribute],
+    variant_attributes: VariantAttributes,
     data: &Data,
 ) -> syn::Result<(TokenStream, TokenStream)> {
     match data {
         Data::Struct(data) => {
-            let variant_attributes = VariantAttributes::parse(attributes)?;
-            let node_name_expr = variant_attributes.node_name_expr(&name);
+            let node_name = variant_attributes.node_names(&name);
             let self_init = gen_constructor(&data.fields)?;
-            Ok((quote!(#node_name_expr), quote!(Self #self_init)))
+            Ok((quote!(#node_name), quote!(Self #self_init)))
         }
         Data::Enum(e) => {
-            let variant_node_name_exprs = e
+            let variant_node_names = e
                 .variants
                 .iter()
-                .map(|v| {
-                    VariantAttributes::parse(&v.attrs).map(|vattr| vattr.node_name_expr(&v.ident))
-                })
+                .map(|v| VariantAttributes::parse(&v.attrs).map(|vattr| vattr.node_names(&v.ident)))
                 .collect::<syn::Result<Vec<TokenStream>>>()?;
 
             let variants = e
                 .variants
                 .iter()
-                .zip(variant_node_name_exprs)
-                .map(|(variant, node_name_expr)| {
+                .zip(variant_node_names.iter())
+                .map(|(variant, node_name)| {
                     let variant_ident = &variant.ident;
                     let self_init = gen_constructor(&variant.fields)?;
                     Ok(quote! {
-                        else if #node_name_expr {
-                            return Ok(Self::#variant_ident #self_init)
+                        else if #node_name.is_allowed(node.name()) {
+                            Self::#variant_ident #self_init
                         }
                     })
                 })
                 .collect::<syn::Result<Vec<TokenStream>>>()?;
 
+            let variant_node_names = quote! {config_parser::AllowedNodeNames::<()>::empty()#(.combine(#variant_node_names))*};
+
             Ok((
                 quote! {
-                    false #(|| #variant_node_name_exprs )*
+                    #variant_node_names
                 },
                 quote! {
-                    if false {}
+                    if false { unreachable!() }
                     #(#variants)*
                     else {
-                        return Err(config_parser::ConfigError::unexpected_node(node, &[#(#variant_names),*]))
+                        return Err(config_parser::ConfigError::unexpected_node(node, Self::allowed_node_names()))
                     }
                 },
             ))
@@ -209,28 +198,24 @@ fn gen_constructor(fields: &Fields) -> syn::Result<TokenStream> {
         Fields::Named(fields) => {
             let mut field_inits = Vec::new();
             for field in fields.named.iter() {
-                let FieldAttributes {
-                    handeling,
-                    rename,
-                    default,
-                } = FieldAttributes::parse(&field.attrs)?;
+                let FieldAttributes { handeling, default } = FieldAttributes::parse(&field.attrs)?;
                 let default_handeling = default.gen_code();
                 let field_ty = &field.ty;
                 let field = field.ident.as_ref().unwrap();
-                let field_name = rename.unwrap_or_else(|| field.to_string());
 
                 field_inits.push(match handeling {
                     FieldHandeling::Child => {
-                        quote! {#field: node.consume_optional_child_into::<#field_ty>(#field_name)?#default_handeling }
+                        quote! {#field: node.consume_optional_child_into::<#field_ty>(true)?.ok_or(config_parser::ConfigError::expected_children(node, #field_ty::allowed_node_names()))#default_handeling }
                     }
                     FieldHandeling::Children => {
-                        quote! {#field: node.consume_children_into::<_, #field_ty>(#field_name)?}
+                        quote! {#field: node.consume_children_into::<_, #field_ty>()?}
                     }
-                    FieldHandeling::Property => {
-                        quote! {#field: node.consume_property(#field_name).map(|val| config_parser::ParseConfigValue::consume_value(val))#default_handeling? }
+                    FieldHandeling::Property(prop_name) => {
+                        let field_name = prop_name.unwrap_or_else(|| field.to_string().into());
+                        quote! {#field: node.consume_optional_property_into::<#field_ty>(#field_name)?.ok_or(config_parser::ConfigError::expected_property(node, #field_name))#default_handeling }
                     }
                     FieldHandeling::Argument => {
-                        quote! {#field: node.consume_argument().map(|val| config_parser::ParseConfigValue::consume_value(val))#default_handeling? }
+                        quote! {#field: node.consume_optional_argument_into::<#field_ty>()?.ok_or(config_parser::ConfigError::expected_argument(node))#default_handeling }
                     },
                     FieldHandeling::Arguments => {
                         quote! {#field: node.consume_arguments_into::<_, #field_ty>()? }
@@ -242,7 +227,10 @@ fn gen_constructor(fields: &Fields) -> syn::Result<TokenStream> {
                         quote! {#field: std::default::Default::default()}
                     },
                     FieldHandeling::NodeName => {
-                        quote!{#field: node.name.inner.into() }
+                        quote!{#field: node.name().into() }
+                    },
+                    FieldHandeling::NodeNameSpanned => {
+                        quote!{#field: node.name_spanned().into() }
                     }
                 })
             }

@@ -1,8 +1,20 @@
-use config_parser::{ConfigNode, from_str};
+use config_parser::{ConfigNode, ParseConfigNode, from_str};
+
+fn parse_no_err<'c, T: ParseConfigNode<'c>>(code: &'c str) -> T {
+    match from_str::<T>(code) {
+        Ok(v) => v,
+        Err(e) => {
+            panic!(
+                "{:?}",
+                miette::Report::from(e).with_source_code(code.to_string())
+            )
+        }
+    }
+}
 
 #[derive(ConfigNode, Debug, PartialEq, Eq)]
 struct Child {
-    #[config(property, rename = "renamed")]
+    #[config(property("renamed"))]
     i_should_be_renamed: String,
 }
 
@@ -15,10 +27,10 @@ struct Test {
 #[test]
 fn renamed_property() {
     let code = r#"
-    test renamed="hello"
+    child renamed="hello"
 "#;
     assert_eq!(
-        from_str::<Test>(code).unwrap(),
+        parse_no_err::<Test>(code),
         Test {
             children: vec![Child {
                 i_should_be_renamed: "hello".to_string()
@@ -30,7 +42,7 @@ fn renamed_property() {
 #[test]
 fn missing_renamed_property() {
     let code = r#"
-    test
+    child
 "#;
     assert_eq!(
         from_str::<Test>(code).map_err(|e| e.to_string()),
@@ -95,13 +107,24 @@ struct Test3 {
 #[test]
 fn enum_as_a_normal_field() {
     let code = r#"
-    enumm
+    var1 var1_prop=true
 "#;
 
     assert_eq!(
-        from_str::<Test3>(code).unwrap(),
+        parse_no_err::<Test3>(code),
         Test3 {
             enumm: MyEnum::Var1(Var1 { var1_prop: true })
+        }
+    );
+
+    let code = r#"
+    var2 var2_prop=true
+"#;
+
+    assert_eq!(
+        parse_no_err::<Test3>(code),
+        Test3 {
+            enumm: MyEnum::Var2(Var2 { var2_prop: true })
         }
     );
 }

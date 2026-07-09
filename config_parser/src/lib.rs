@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::{rc::Rc, sync::Arc};
 
@@ -15,16 +16,88 @@ pub use {config_node::*, config_value::*, document::*, error::*, parsey::Spanned
 ///
 /// Note: You need to manually attach the miette source code to the error returned by this function.
 ///```rust
-/// let parsed = config_parser::from_str(source_code).unwrap_or_else(|e| {
+///# #[derive(config_parser::ConfigNode)]
+///# struct MyType { }
+///# let source_code = "";
+///
+/// let parsed : MyType = config_parser::from_str(source_code).unwrap_or_else(|e| {
 ///     panic!(
 ///         "{:?}",
-///         Report::from(e).with_source_code(source_code.to_string())
+///         miette::Report::from(e).with_source_code(source_code.to_string())
 ///     )
 /// });
+/// # let parsed : MyType = parsed;
 ///```
 pub fn from_str<'c, T: ParseConfigNode<'c>>(str: &'c str) -> Result<T, ConfigError> {
     let doc = Document::from_str(str)?;
     doc.parse_into::<T>()
+}
+
+#[derive(Clone)]
+pub enum AllowedNodeNames<I> {
+    Any,
+    Iter(I),
+}
+impl<I: Iterator<Item = &'static str> + Clone> AllowedNodeNames<I> {
+    pub fn is_allowed(self, name: &str) -> bool {
+        match self {
+            Self::Any => true,
+            Self::Iter(mut iter) => iter.find(|n| *n == name).is_some(),
+        }
+    }
+    pub fn is_empty(self) -> bool {
+        match self {
+            Self::Any => false,
+            Self::Iter(mut i) => i.next().is_none(),
+        }
+    }
+
+    pub fn combine(
+        self,
+        other: AllowedNodeNames<impl Iterator<Item = &'static str> + Clone>,
+    ) -> AllowedNodeNames<impl Iterator<Item = &'static str> + Clone> {
+        match (self, other) {
+            (AllowedNodeNames::Any, _) => AllowedNodeNames::Any,
+            (_, AllowedNodeNames::Any) => AllowedNodeNames::Any,
+            (AllowedNodeNames::Iter(iter1), AllowedNodeNames::Iter(iter2)) => {
+                AllowedNodeNames::Iter(iter1.chain(iter2))
+            }
+        }
+    }
+}
+impl<I: Iterator<Item = &'static str> + Clone> ToString for AllowedNodeNames<I> {
+    fn to_string(&self) -> String {
+        let mut string = String::new();
+        match self {
+            Self::Any => string.push_str("any node"),
+            Self::Iter(iter) => {
+                for node_name in iter.clone() {
+                    string.push_str(node_name);
+                    string.push(',');
+                }
+                string.pop();
+            }
+        }
+        string
+    }
+}
+impl<I> AllowedNodeNames<I> {
+    pub fn empty() -> AllowedNodeNames<impl Iterator<Item = &'static str> + Clone> {
+        AllowedNodeNames::Iter(std::iter::empty::<&'static str>())
+    }
+    pub fn from_single(
+        name: &'static str,
+    ) -> AllowedNodeNames<impl Iterator<Item = &'static str> + Clone> {
+        AllowedNodeNames::Iter(std::iter::once(name))
+    }
+    pub fn any() -> AllowedNodeNames<std::iter::Empty<&'static str>> {
+        AllowedNodeNames::Any
+    }
+    pub fn from_slice(
+        slice: &[&'static str],
+    ) -> AllowedNodeNames<impl Iterator<Item = &'static str> + Clone> {
+        AllowedNodeNames::Iter(slice.iter().map(|c| *c))
+    }
 }
 
 pub trait ParseConfigValue<'c>: Sized {
@@ -32,13 +105,12 @@ pub trait ParseConfigValue<'c>: Sized {
 }
 
 pub trait ParseConfigNode<'c>: Sized {
-    /// Returns true if this node should be parsed as the provided node.
-    /// Most implementations just check the name of the node and let the system throw an error
-    /// during parsing for missing properties, arguments and child nodes.
-    fn match_node(node: &ConfigNode<'c>) -> bool;
+    /// Node names which this node can be parsed from.
+    fn allowed_node_names() -> AllowedNodeNames<impl Iterator<Item = &'static str> + Clone>;
 
     /// Consumes the node into this type.
-    /// the parameter `terminate` indicates if the node should be terminated by the function.
+    ///
+    /// The parameter `terminate` indicates if the node should be terminated by the function.
     /// After a node is terminated it can't be consumed further anymore and an error is thrown if it
     /// was not fully consumed.
     fn consume_node(node: &mut ConfigNode<'c>, terminate: bool) -> Result<Self>;
@@ -53,11 +125,11 @@ impl<'c, T: ParseConfigValue<'c>> ParseConfigValue<'c> for Spanned<T> {
     }
 }
 impl<'c, T: ParseConfigNode<'c>> ParseConfigNode<'c> for Spanned<T> {
-    fn match_node(node: &ConfigNode<'c>) -> bool {
-        T::match_node(node)
+    fn allowed_node_names() -> AllowedNodeNames<impl Iterator<Item = &'static str> + Clone> {
+        T::allowed_node_names()
     }
     fn consume_node(node: &mut ConfigNode<'c>, terminate: bool) -> Result<Self> {
-        let span = node.name.span.clone();
+        let span = node.name_spanned().span.clone();
         Ok(Spanned::new(T::consume_node(node, terminate)?, span))
     }
 }
@@ -74,8 +146,8 @@ impl<'c, T: ParseConfigValue<'c>> ParseConfigValue<'c> for Option<T> {
     }
 }
 impl<'c, T: ParseConfigNode<'c>> ParseConfigNode<'c> for Option<T> {
-    fn match_node(node: &ConfigNode<'c>) -> bool {
-        T::match_node(node)
+    fn allowed_node_names() -> AllowedNodeNames<impl Iterator<Item = &'static str> + Clone> {
+        T::allowed_node_names()
     }
     fn consume_node(node: &mut ConfigNode<'c>, terminate: bool) -> Result<Self> {
         Ok(Some(T::consume_node(node, terminate)?))

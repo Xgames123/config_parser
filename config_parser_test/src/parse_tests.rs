@@ -1,4 +1,4 @@
-use config_parser::parse::{ConfigNode, ConfigValue, Document};
+use config_parser::{ConfigNode, ConfigValue, Document};
 use miette::Report;
 
 fn parse<'c>(code: &'c str) -> Document<'c> {
@@ -61,6 +61,16 @@ test true #true false #false my_prop=#true my_prop2=false
             .with_arg(ConfigValue::Bool(false))
             .with_prop("my_prop", ConfigValue::Bool(true))
             .with_prop("my_prop2", ConfigValue::Bool(false))]),
+    );
+}
+
+#[test]
+fn property_test() {
+    test(
+        "\nchild property=\"string\"\n",
+        Document::new([
+            ConfigNode::new("child").with_prop("property", ConfigValue::String("string"))
+        ]),
     );
 }
 

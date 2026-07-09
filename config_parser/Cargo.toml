@@ -13,5 +13,6 @@ thiserror = "2.0.18"
 config_parser_derive = { path="../config_parser_derive", optional=true }
 
 [features]
+default=["derive"]
 derive=["dep:config_parser_derive"]
 

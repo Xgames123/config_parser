@@ -1,4 +1,4 @@
-use crate::{ConfigNode, ConfigValue, ConfigValueType, parse::SyntaxError};
+use crate::{AllowedNodeNames, ConfigNode, ConfigValue, ConfigValueType, parse::SyntaxError};
 use miette::{Diagnostic, SourceSpan};
 use parsey::{Span, Spanned};
 use std::borrow::Cow;
@@ -23,11 +23,11 @@ pub enum ConfigError {
         found: ConfigValueType,
     },
 
-    #[error("Missing child node: {node_name}.")]
-    ExpectedChild {
+    #[error("Expected one of the following node types are: {node_names}")]
+    ExpectedChildren {
         #[label("Parent")]
         parent: SourceSpan,
-        node_name: Box<str>,
+        node_names: Box<str>,
     },
 
     #[error("Missing property: {prop_name}.")]
@@ -55,11 +55,11 @@ pub enum ConfigError {
         found: usize,
     },
 
-    #[error("Unexpected node type. Available node types are: {expected:?}")]
+    #[error("Unexpected node type. Available node types are: {node_names}")]
     UnexpectedNodeExpect {
         #[label("Unexpected node")]
         span: SourceSpan,
-        expected: &'static [&'static str],
+        node_names: Box<str>,
     },
 
     #[error("Expected no more nodes but found one.")]
@@ -84,27 +84,41 @@ impl ConfigError {
             found: value.ty(),
         }
     }
-    pub fn expected_child(parent: &ConfigNode, child: impl Into<Box<str>>) -> Self {
-        Self::ExpectedChild {
-            parent: parent.name.span.clone().into(),
-            node_name: child.into(),
+    pub fn expected_children(
+        parent: &ConfigNode,
+        children: AllowedNodeNames<impl Iterator<Item = &'static str> + Clone>,
+    ) -> Self {
+        Self::ExpectedChildren {
+            parent: parent.name_span().into(),
+            node_names: children.to_string().into(),
         }
     }
     pub fn expected_property(node: &ConfigNode, property: impl Into<Box<str>>) -> Self {
         Self::ExpectedProperty {
-            node: node.name.span.clone().into(),
+            node: node.name_span().into(),
             prop_name: property.into(),
         }
     }
-    pub fn unexpected_node(node: &ConfigNode, expected: &'static [&'static str]) -> Self {
-        if expected.len() == 0 {
+    pub fn expected_argument(node: &ConfigNode) -> Self {
+        ConfigError::ExpectedArgument {
+            node: node.name_span().into(),
+            expected: node.argument_count + 1,
+            found: node.argument_count,
+        }
+    }
+
+    pub fn unexpected_node(
+        node: &ConfigNode,
+        expected: AllowedNodeNames<impl Iterator<Item = &'static str> + Clone>,
+    ) -> Self {
+        if expected.clone().is_empty() {
             Self::UnexpectedNode {
-                span: node.name.span.clone().into(),
+                span: node.name_span().into(),
             }
         } else {
             Self::UnexpectedNodeExpect {
-                span: node.name.span.clone().into(),
-                expected,
+                span: node.name_span().into(),
+                node_names: expected.to_string().into(),
             }
         }
     }
@@ -117,7 +131,7 @@ impl ConfigError {
 
     pub fn is_expect_item_error(&self) -> bool {
         match self {
-            Self::ExpectedChild { .. } => true,
+            Self::ExpectedChildren { .. } => true,
             Self::ExpectedProperty { .. } => true,
             Self::ExpectedArgument { .. } => true,
             _ => false,

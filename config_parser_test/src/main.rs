@@ -4,7 +4,7 @@ use std::{
     time::Instant,
 };
 
-use config_parser::parse::Document;
+use config_parser::Document;
 use miette::Report;
 
 #[cfg(test)]
@@ -109,6 +109,6 @@ push {
     #[bench]
     fn my_impl(b: &mut Bencher) {
         let content = content();
-        b.iter(|| black_box(config_parser::parse::Document::from_str(&content).unwrap()))
+        b.iter(|| black_box(config_parser::Document::from_str(&content).unwrap()))
     }
 }

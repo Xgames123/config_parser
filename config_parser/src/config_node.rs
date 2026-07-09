@@ -1,23 +1,31 @@
-use crate::{ConfigError, ConfigValue, Document, ParseConfigNode, ParseConfigValue, Spanned};
+use std::ops::{Deref, DerefMut};
+
+use parsey::Span;
+
+use crate::{
+    AllowedNodeNames, ConfigError, ConfigValue, Document, ParseConfigNode, ParseConfigValue,
+    Spanned,
+};
 
 #[derive(Debug, PartialEq)]
 pub struct ConfigNode<'c> {
-    pub name: Spanned<&'c str>,
-    arguments: Vec<Spanned<ConfigValue<'c>>>,
-    argument_count: usize,
-    properties: Vec<Option<(&'c str, Spanned<ConfigValue<'c>>)>>,
-    children: Vec<Option<ConfigNode<'c>>>,
+    pub(crate) arguments: Vec<Spanned<ConfigValue<'c>>>,
+    pub(crate) argument_count: usize,
+    pub(crate) properties: Vec<Option<(&'c str, Spanned<ConfigValue<'c>>)>>,
+    pub(crate) children: Vec<Option<ConfigNode<'c>>>,
+    pub(crate) name: Spanned<&'c str>,
 }
 impl<'c> ConfigNode<'c> {
     pub fn new(name: &'c str) -> Self {
         Self {
-            argument_count: 0,
             name: Spanned::null_span(name),
+            argument_count: 0,
             arguments: vec![],
             properties: vec![],
             children: vec![],
         }
     }
+
     pub fn from_document(document: Document<'c>) -> Self {
         let mut node = ConfigNode::new("document");
         node.children = document.nodes;
@@ -37,6 +45,25 @@ impl<'c> ConfigNode<'c> {
         self.arguments.push(Spanned::null_span(value));
         self.argument_count += 1;
         self
+    }
+
+    pub fn name(&self) -> &'c str {
+        &self.name
+    }
+    pub fn name_spanned(&self) -> Spanned<&'c str> {
+        self.name.clone()
+    }
+    pub fn name_span(&self) -> Span {
+        self.name.span.clone()
+    }
+
+    pub fn children(&self) -> impl Iterator<Item = &ConfigNode<'c>> {
+        self.children.iter().filter_map(|c| c.as_ref())
+    }
+    pub fn properties(&self) -> impl Iterator<Item = (&'c str, &Spanned<ConfigValue<'c>>)> {
+        self.properties
+            .iter()
+            .filter_map(|p| p.as_ref().map(|(n, p)| (*n, p)))
     }
 
     pub fn eq_no_span(&self, other: &ConfigNode) -> bool {
@@ -63,15 +90,6 @@ impl<'c> ConfigNode<'c> {
         true
     }
 
-    pub fn children(&self) -> impl Iterator<Item = &ConfigNode<'c>> {
-        self.children.iter().filter_map(|c| c.as_ref())
-    }
-    pub fn properties(&self) -> impl Iterator<Item = (&'c str, &Spanned<ConfigValue<'c>>)> {
-        self.properties
-            .iter()
-            .filter_map(|p| p.as_ref().map(|(n, p)| (*n, p)))
-    }
-
     pub fn get_property(&self, name: &str) -> Option<Spanned<ConfigValue<'c>>> {
         for (prop, value) in self.properties.iter().filter_map(|c| c.as_ref()) {
             if *prop == name {
@@ -83,11 +101,11 @@ impl<'c> ConfigNode<'c> {
 
     pub fn consume_children_matching(
         &mut self,
-        mut f: impl FnMut(&ConfigNode<'c>) -> bool,
+        node_names: AllowedNodeNames<impl Iterator<Item = &'static str> + Clone>,
     ) -> impl Iterator<Item = Self> {
         self.children.iter_mut().filter_map(move |child| {
             if let Some(child_node) = child {
-                if f(&child_node) {
+                if node_names.clone().is_allowed(child_node.name()) {
                     return child.take();
                 }
             }
@@ -97,23 +115,23 @@ impl<'c> ConfigNode<'c> {
     pub fn consume_children_into<T: ParseConfigNode<'c>, O: FromIterator<T>>(
         &mut self,
     ) -> Result<O, ConfigError> {
-        self.consume_children_matching(|c| T::match_node(&c))
+        self.consume_children_matching(T::allowed_node_names())
             .map(|mut n| ParseConfigNode::consume_node(&mut n, true))
             .collect::<Result<O, ConfigError>>()
     }
 
     pub fn consume_optional_child_matching(
         &mut self,
-        f: impl FnMut(&ConfigNode<'c>) -> bool,
-    ) -> Option<ConfigNode<'_>> {
-        self.consume_children_matching(f).next()
+        node_names: AllowedNodeNames<impl Iterator<Item = &'static str> + Clone>,
+    ) -> Option<ConfigNode<'c>> {
+        self.consume_children_matching(node_names).next()
     }
 
     pub fn consume_optional_child_into<T: ParseConfigNode<'c>>(
-        &'c mut self,
+        &mut self,
         terminate: bool,
     ) -> Result<Option<T>, ConfigError> {
-        let Some(mut child) = self.consume_optional_child_matching(|c| T::match_node(c)) else {
+        let Some(mut child) = self.consume_optional_child_matching(T::allowed_node_names()) else {
             return Ok(None);
         };
 
@@ -125,34 +143,54 @@ impl<'c> ConfigNode<'c> {
     ) -> Result<T, ConfigError> {
         Ok(self
             .consume_optional_child_into(terminate)?
-            .ok_or(ConfigError::expected_child(&self, name))?)
+            .ok_or(ConfigError::expected_children(
+                &self,
+                T::allowed_node_names(),
+            ))?)
     }
 
-    pub fn consume_property_optional(&mut self, name: &str) -> Option<Spanned<ConfigValue<'c>>> {
-        let Some(index) = self
-            .properties
-            .iter()
-            .position(|prop| prop.as_ref().map(|(n, _)| *n) == Some(name))
-        else {
+    pub fn consume_optional_property(&mut self, name: &str) -> Option<Spanned<ConfigValue<'c>>> {
+        let Some(index) = self.properties.iter().position(|entry| {
+            let prop_name = entry.as_ref().map(|(name, _)| *name);
+            prop_name == Some(name)
+        }) else {
             return None;
         };
         Some(self.properties[index].take().unwrap().1)
+    }
+    pub fn consume_optional_property_into<T: ParseConfigValue<'c>>(
+        &mut self,
+        name: &str,
+    ) -> Result<Option<T>, ConfigError> {
+        let Some(prop) = self.consume_optional_property(name) else {
+            return Ok(None);
+        };
+        Ok(Some(T::consume_value(prop)?))
     }
 
     pub fn consume_property(
         &mut self,
         name: &str,
     ) -> Result<Spanned<ConfigValue<'c>>, ConfigError> {
-        self.consume_property_optional(name)
+        self.consume_optional_property(name)
             .ok_or(ConfigError::expected_property(self, name))
     }
 
-    pub fn consume_argument_optional(&mut self) -> Option<Spanned<ConfigValue<'c>>> {
+    pub fn consume_optional_argument(&mut self) -> Option<Spanned<ConfigValue<'c>>> {
         self.arguments.pop()
+    }
+    pub fn consume_optional_argument_into<T: ParseConfigValue<'c>>(
+        &mut self,
+    ) -> Result<Option<T>, ConfigError> {
+        let Some(arg) = self.consume_optional_argument() else {
+            return Ok(None);
+        };
+
+        Ok(Some(T::consume_value(arg)?))
     }
 
     pub fn consume_argument(&mut self) -> Result<Spanned<ConfigValue<'c>>, ConfigError> {
-        self.consume_argument_optional()
+        self.consume_optional_argument()
             .ok_or(ConfigError::ExpectedArgument {
                 node: self.name.span.clone().into(),
                 expected: self.argument_count + 1,
@@ -173,7 +211,10 @@ impl<'c> ConfigNode<'c> {
     /// will be thrown.
     pub fn terminate(&mut self) -> Result<(), ConfigError> {
         if let Some(c) = self.children().next() {
-            return Err(ConfigError::unexpected_node(c, &[]));
+            return Err(ConfigError::unexpected_node(
+                c,
+                AllowedNodeNames::<()>::empty(),
+            ));
         }
         if let Some(arg) = self.arguments.iter().next() {
             return Err(ConfigError::TooManyArguments {

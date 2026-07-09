@@ -15,12 +15,17 @@ impl<'c> Document<'c> {
 
     /// Note: You need to manually attach the miette source code to the error returned by this function.
     ///```rust
-    /// let parsed = config_parser::from_str(source_code).unwrap_or_else(|e| {
+    ///# #[derive(config_parser::ConfigNode)]
+    ///# struct MyType { }
+    ///# let source_code = "";
+    ///
+    /// let parsed : MyType = config_parser::from_str(source_code).unwrap_or_else(|e| {
     ///     panic!(
     ///         "{:?}",
-    ///         Report::from(e).with_source_code(source_code.to_string())
+    ///         miette::Report::from(e).with_source_code(source_code.to_string())
     ///     )
     /// });
+    /// # let parsed : MyType = parsed;
     ///```
     pub fn from_str(str: &'c str) -> Result<Self> {
         let mut parser = Parsey::new(str);

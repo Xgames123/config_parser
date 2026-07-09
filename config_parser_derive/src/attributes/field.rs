@@ -1,17 +1,15 @@
 use proc_macro2::TokenStream;
-use syn::{Attribute, LitStr};
+use syn::{Attribute, LitStr, parenthesized, token::Comma};
 use quote::quote;
 
 
 pub struct FieldAttributes {
     pub handeling: FieldHandeling,
-    pub rename: Option<String>,
     pub default: DefaultHandeling,
 }
 impl FieldAttributes {
     pub fn parse<'a>(attrs: impl IntoIterator<Item = &'a Attribute>) -> Result<Self, syn::Error> {
         let mut handeling = None;
-        let mut rename = None;
         let mut default = DefaultHandeling::Error;
         for attr in attrs.into_iter() {
             if attr.path().is_ident("config") {
@@ -25,7 +23,14 @@ impl FieldAttributes {
                     }else if meta.path.is_ident("flatten") {
                         Some(FieldHandeling::Flatten)
                     }else if meta.path.is_ident("property") {
-                        Some(FieldHandeling::Property)
+                        if meta.input.is_empty() || meta.input.lookahead1().peek(Comma) {
+                            Some(FieldHandeling::Property(None))
+                        }else {
+                            let content;
+                            parenthesized!(content in meta.input);
+                            let str = content.parse::<LitStr>()?;
+                            Some(FieldHandeling::Property(Some(str.value().into())))
+                        }
                     }else if meta.path.is_ident("argument") {
                         Some(FieldHandeling::Argument)
                     }else if meta.path.is_ident("arguments") {
@@ -34,6 +39,8 @@ impl FieldAttributes {
                         Some(FieldHandeling::Skip)
                     }else if meta.path.is_ident("node_name") {
                         Some(FieldHandeling::NodeName)
+                    } else if meta.path.is_ident("node_name_spanned") {
+                        Some(FieldHandeling::NodeNameSpanned)
                     } else { None };
 
                     if let Some(new_handeling) = new_handeling {
@@ -46,19 +53,15 @@ impl FieldAttributes {
                         };
                     }
 
-                    if meta.path.is_ident("rename") {
-                        rename = Some(meta.value()?.parse::<LitStr>()?.value());
-                        return Ok(());
-                    }
                     if meta.path.is_ident("default") {
                         default = DefaultHandeling::DefaultTrait;
                         return Ok(());
                     }
-                    Err(meta.error("Unknown attribute valid attributes are: child, children, property, argument, arguments, rename, default, flatten and node_name"))
+                    Err(meta.error("Unknown attribute valid attributes are: child, children, property, property(\"prop name\"), argument, arguments, default, flatten and node_name"))
                 })?;
             }
         }
-        Ok(FieldAttributes { handeling: handeling.unwrap_or(FieldHandeling::Property), rename, default })
+        Ok(FieldAttributes { handeling: handeling.unwrap_or(FieldHandeling::Property(None)),  default })
     }
 }
 
@@ -66,12 +69,13 @@ impl FieldAttributes {
 pub enum FieldHandeling {
     Child,
     Children,
-    Property,
+    Property(Option<Box<str>>),
     Argument,
     Arguments,
     Flatten,
     Skip,
     NodeName,
+    NodeNameSpanned
 }
 
 pub enum DefaultHandeling {
@@ -79,10 +83,11 @@ pub enum DefaultHandeling {
     DefaultTrait,
 }
 impl DefaultHandeling {
+    /// Generates code to handle an Option<T>
     pub fn gen_code(self) -> TokenStream {
         match self {
             Self::Error => quote! {?},
-            Self::DefaultTrait => quote! {.unwrap_or_else(|_|Ok(std::default::Default::default()))}
+            Self::DefaultTrait => quote! {.unwrap_or_else(|_|std::default::Default::default())}
         }
     }
 }

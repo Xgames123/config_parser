@@ -1,66 +1,101 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Attribute, Ident, LitStr, Type, meta::ParseNestedMeta};
+use syn::{
+    Attribute, Ident, LitStr, Type, WhereClause, WherePredicate, meta::ParseNestedMeta,
+    parenthesized, punctuated::Punctuated, token::Comma,
+};
 
 use crate::pascal_to_kebab;
 
 pub enum VariantName {
-    Auto,
+    FromVariant,
     Custom(Box<str>),
     FromType(Type),
+    Any,
+}
+
+/// The content of impl_where()
+pub struct ImplWhere {
+    added_predicates: Punctuated<syn::WherePredicate, Comma>,
+}
+impl ImplWhere {
+    pub fn extend_where_clause(self, clause: &mut WhereClause) {
+        clause.predicates.extend(self.added_predicates);
+    }
 }
 
 pub struct VariantAttributes {
     pub name: VariantName,
+    pub impl_where: Option<ImplWhere>,
 }
 
 impl VariantAttributes {
     /// Generates an expression that matches the node name to the node variable
-    pub fn node_name_expr(&self, variant_name: &Ident) -> TokenStream {
+    pub fn node_names(&self, variant_name: &Ident) -> TokenStream {
         match &self.name {
-            VariantName::Auto => {
-                let name = pascal_to_kebab(variant_name.to_string());
-                quote! {&node.name.inner == #name}
+            VariantName::Any => {
+                quote! {config_parser::AllowedNodeNames::<()>::any()}
             }
-            VariantName::Custom(name) => quote! {&node.name.inner == #name},
+            VariantName::FromVariant => {
+                let name = pascal_to_kebab(variant_name.to_string());
+                quote! {config_parser::AllowedNodeNames::<()>::from_single(#name)}
+            }
+            VariantName::Custom(name) => {
+                quote! {config_parser::AllowedNodeNames::<()>::from_single(#name)}
+            }
             VariantName::FromType(ty) => {
-                quote! {<#ty as config_parser::ParseConfigNode::match_node(node)>}
+                quote! {<#ty as config_parser::ParseConfigNode>::allowed_node_names()}
             }
         }
     }
 
     pub fn parse<'a>(attrs: impl IntoIterator<Item = &'a Attribute>) -> Result<Self, syn::Error> {
-        let mut name = VariantName::Auto;
+        let mut name = VariantName::FromVariant;
+        let mut impl_where = None;
         for attr in attrs.into_iter() {
             if attr.path().is_ident("config") {
                 attr.parse_nested_meta(|meta| {
-                    if meta.path.is_ident("node_name") {
+                    if meta.path.is_ident("impl_where") {
+                        let content;
+                        parenthesized!(content in meta.input);
+
+                        let added_predicates =
+                            Punctuated::<WherePredicate, Comma>::parse_terminated(&content)?;
+                        impl_where = Some(ImplWhere { added_predicates });
+                        return Ok(());
+                    } else if meta.path.is_ident("node_name") {
                         name = Self::parse_node_name_attr(&meta)?;
-                    } else if meta.path.is_ident("rename") {
-                        let value = meta.value()?.parse::<LitStr>()?.value().into_boxed_str();
-                        name = VariantName::Custom(value);
+                        return Ok(());
                     }
                     Err(meta.error(
-                        "Unknown variant attribute valid attributes are: node_name and rename",
+                        "Unknown variant attribute valid attributes are: impl_where, node_name",
                     ))
                 })?;
             }
         }
-        Ok(VariantAttributes { name })
+        Ok(VariantAttributes { name, impl_where })
     }
 
     fn parse_node_name_attr<'a>(meta: &ParseNestedMeta<'a>) -> Result<VariantName, syn::Error> {
-        let value = meta.value()?;
-        if let Ok(str) = value.parse::<LitStr>() {
+        let content;
+        parenthesized!(content in meta.input);
+
+        if let Ok(str) = content.parse::<LitStr>() {
             return Ok(VariantName::Custom(str.value().into_boxed_str()));
-        } else if let Ok(ident) = value.parse::<syn::Ident>() {
-            if ident == "auto" {
-                return Ok(VariantName::Auto);
-            }
         }
 
-        return Err(value.error(
-            "Unknown node_name value. valid values are auto or a string with the new name",
-        ));
+        if let Ok(ty) = content.parse::<syn::Type>() {
+            if let Type::Path(ref path) = ty {
+                let path = &path.path;
+                if path.is_ident("auto") {
+                    return Ok(VariantName::FromVariant);
+                } else if path.is_ident("any") {
+                    return Ok(VariantName::Any);
+                }
+            }
+            return Ok(VariantName::FromType(ty));
+        }
+        Err(content
+            .error("Unknown node_name value. valid values are node_name=auto node_name=any node_name=\"new name\" node_name=MyForwardType"))
     }
 }
