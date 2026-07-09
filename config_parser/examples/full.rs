@@ -70,6 +70,12 @@ enum BuildStep {
         #[config(child)]
         builder: Builder,
     },
+
+    #[config(node_name(any))]
+    Unknown {
+        #[config(node_name)]
+        step_name: String,
+    },
 }
 
 #[derive(Debug, ConfigNode, PartialEq)]
@@ -91,6 +97,8 @@ build {
     run name="run the builder" {
         cargo-builder out="/test"
     }
+
+    non-existant-step name="I don't exist"
 }
 
 package name="config_parser" {
@@ -139,6 +147,12 @@ user name="other jef" passwd="pass"
                                 name: "cargo-builder".into(),
                                 output: "/test".into()
                             }
+                        }
+                    },
+                    Named {
+                        name: "I don't exist".into(),
+                        inner: BuildStep::Unknown {
+                            step_name: "non-existant-step".into()
                         }
                     }
                 ]

@@ -62,7 +62,7 @@ pub enum ConfigError {
         node_names: Box<str>,
     },
 
-    #[error("Expected no more nodes but found one.")]
+    #[error("Unexpected node.")]
     UnexpectedNode {
         #[label("Unexpected node")]
         span: SourceSpan,
