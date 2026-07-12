@@ -48,7 +48,7 @@ my_node properties_are_supported=#true {
 
 ## Error Reporting
 
-For enhanced diagnostics, enable the `fancy` feature of `miette`:
+To get the fancy error messages, enable the `fancy` feature of `miette` by adding the following to your crates `Cargo.toml` (Only do this for the root crate):
 
 **Cargo.toml**
 
