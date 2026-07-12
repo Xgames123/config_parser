@@ -10,6 +10,6 @@ edition = "2024"
 description = "Parser and serde like derive macros for a mostly kdl compatible configuration format."
 repository = "https://github.com/Xgames123/starryconfig"
 readme = "README.md"
-keywords = ["kdl", "parser", "parsing","configuration", "config", "derive"]
+keywords = ["kdl", "parser", "configuration", "config", "derive"]
 categories = ["config", "parsing"]
 license="Apache-2.0"
