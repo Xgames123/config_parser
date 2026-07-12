@@ -129,7 +129,7 @@ cargo +nightly bench
 
 ## Licence
 
-Copyright 2026 S.v.e.
+Copyright 2026 S.v.E.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
