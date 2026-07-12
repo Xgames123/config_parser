@@ -5,9 +5,9 @@ authors.workspace = true
 edition.workspace = true
 description.workspace = true
 repository.workspace = true
-licence.workspace=true
-categories.workspace=true
-keywords.workspace=true
+license.workspace = true
+categories.workspace = true
+keywords.workspace = true
 
 [lib]
 proc-macro = true

@@ -5,8 +5,9 @@ authors.workspace = true
 edition.workspace = true
 description.workspace = true
 repository.workspace = true
-categories.workspace=true
-keywords.workspace=true
+categories.workspace = true
+keywords.workspace = true
+license.workspace = true
 
 [dependencies]
 miette={version="7.6.0", features=["fancy"]}

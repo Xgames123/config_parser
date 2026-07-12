@@ -1,12 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::token::Comma;
-use syn::{
-    Attribute, Data, DeriveInput, Fields, Generics, Ident, WherePredicate, parenthesized,
-    parse_macro_input,
-};
+use syn::{Data, DeriveInput, Fields, Ident, parse_macro_input};
 
 use crate::{
     attributes::{field::FieldAttributes, field::FieldHandeling, variant::VariantAttributes},
