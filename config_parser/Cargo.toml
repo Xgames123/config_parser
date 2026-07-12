@@ -5,10 +5,13 @@ authors.workspace = true
 edition.workspace = true
 description.workspace = true
 repository.workspace = true
+licence.workspace=true
+categories.workspace=true
+keywords.workspace=true
 
 [dependencies]
 miette = { version = "7.6.0" }
-parsey= {path="../parsey", features=["miette"]}
+starryparse= { version="1.0.1", features=["miette"] }
 thiserror = "2.0.18"
 config_parser_derive = { path="../config_parser_derive", optional=true }
 

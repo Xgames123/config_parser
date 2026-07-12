@@ -5,10 +5,10 @@ use crate::{
         parse_utils::{is_whitespace, skip_space_and_comments},
     },
 };
-use parsey::{Parsey, Spanned, parse_any};
+use starryparse::{Parser, Spanned, parse_any};
 
 impl<'c> ConfigValue<'c> {
-    pub fn parse(parser: &mut Parsey<'c>) -> Result<Option<Spanned<Self>>> {
+    pub fn parse(parser: &mut Parser<'c>) -> Result<Option<Spanned<Self>>> {
         skip_space_and_comments(parser, false)?;
 
         parse_any!(
@@ -20,7 +20,7 @@ impl<'c> ConfigValue<'c> {
         )
     }
 
-    fn parse_number(parser: &mut Parsey<'c>) -> Result<Option<Spanned<Self>>> {
+    fn parse_number(parser: &mut Parser<'c>) -> Result<Option<Spanned<Self>>> {
         parser.sandbox_result(|parser| {
             let number = parser.take_until_or_end(|c| is_whitespace(c));
 
@@ -61,7 +61,7 @@ impl<'c> ConfigValue<'c> {
         })
     }
 
-    fn parse_bool(parser: &mut Parsey<'c>) -> Result<Option<Spanned<Self>>> {
+    fn parse_bool(parser: &mut Parser<'c>) -> Result<Option<Spanned<Self>>> {
         parser.sandbox_result(|parser| {
             let ident = parser.take_until_or_end(|c| is_whitespace(c));
             match ident.str() {
@@ -73,7 +73,7 @@ impl<'c> ConfigValue<'c> {
         })
     }
 
-    fn parse_string(parser: &mut Parsey<'c>) -> Result<Option<Spanned<Self>>> {
+    fn parse_string(parser: &mut Parser<'c>) -> Result<Option<Spanned<Self>>> {
         parser.sandbox_result(|parser| {
             if let None = parser.take("\"") {
                 return Ok(None);
@@ -90,7 +90,7 @@ impl<'c> ConfigValue<'c> {
         })
     }
 
-    fn parse_ident_string(parser: &mut Parsey<'c>) -> Result<Option<Spanned<Self>>> {
+    fn parse_ident_string(parser: &mut Parser<'c>) -> Result<Option<Spanned<Self>>> {
         parser.sandbox_result(|parser| {
             let string = parser.take_until_or_end(|c| is_whitespace(c));
             if string.str().len() == 0 {
@@ -115,29 +115,29 @@ impl<'c> ConfigValue<'c> {
 
 #[cfg(test)]
 mod test {
-    use parsey::{Parsey, Spanned};
+    use starryparse::{Parser, Spanned};
 
     use crate::ConfigValue;
 
     #[test]
     fn parse_number() {
         assert_eq!(
-            ConfigValue::parse_number(&mut Parsey::new("0xff")),
+            ConfigValue::parse_number(&mut Parser::new("0xff")),
             Ok(Some(Spanned::new(ConfigValue::Int(0xFF), 0..4)))
         );
 
         assert_eq!(
-            ConfigValue::parse_number(&mut Parsey::new("0b0101")),
+            ConfigValue::parse_number(&mut Parser::new("0b0101")),
             Ok(Some(Spanned::new(ConfigValue::Int(0b0101), 0..6)))
         );
 
         assert_eq!(
-            ConfigValue::parse_number(&mut Parsey::new("67")),
+            ConfigValue::parse_number(&mut Parser::new("67")),
             Ok(Some(Spanned::new(ConfigValue::Int(67), 0..2)))
         );
 
         assert_eq!(
-            ConfigValue::parse_number(&mut Parsey::new("1.3")),
+            ConfigValue::parse_number(&mut Parser::new("1.3")),
             Ok(Some(Spanned::new(ConfigValue::Float(1.3), 0..3)))
         );
     }

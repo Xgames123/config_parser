@@ -1,4 +1,4 @@
-use parsey::{Parsey, Spanned};
+use starryparse::{Parser, Spanned};
 
 use crate::{
     ConfigNode, ConfigValue,
@@ -9,7 +9,7 @@ use crate::{
 };
 
 impl<'c> ConfigNode<'c> {
-    pub fn parse(parser: &mut Parsey<'c>) -> Result<Option<Self>> {
+    pub fn parse(parser: &mut Parser<'c>) -> Result<Option<Self>> {
         skip_space_and_comments(parser, true)?;
 
         let Some(name) = ident(parser)? else {
@@ -103,7 +103,7 @@ impl<'c> ConfigNode<'c> {
     }
 
     fn parse_property(
-        parser: &mut Parsey<'c>,
+        parser: &mut Parser<'c>,
     ) -> Result<Option<(&'c str, Spanned<ConfigValue<'c>>)>> {
         skip_space_and_comments(parser, false)?;
         let Some(name) = ident(parser)? else {
@@ -123,7 +123,7 @@ impl<'c> ConfigNode<'c> {
 
 #[cfg(test)]
 mod test {
-    use parsey::{Parsey, Spanned};
+    use starryparse::{Parser, Spanned};
 
     use crate::{ConfigNode, ConfigValue};
 
@@ -132,7 +132,7 @@ mod test {
         let code = "test_node";
 
         assert_eq!(
-            ConfigNode::parse(&mut Parsey::new(code)),
+            ConfigNode::parse(&mut Parser::new(code)),
             Ok(Some(ConfigNode {
                 name: Spanned::new("test_node", 0..9),
                 argument_count: 0,
@@ -148,7 +148,7 @@ mod test {
         let code = "test_node /* next is an argument */ 1.3";
 
         assert_eq!(
-            ConfigNode::parse(&mut Parsey::new(code)),
+            ConfigNode::parse(&mut Parser::new(code)),
             Ok(Some(ConfigNode {
                 name: Spanned::new("test_node", 0..9),
                 arguments: vec![Spanned::new(ConfigValue::Float(1.3), 36..39)],

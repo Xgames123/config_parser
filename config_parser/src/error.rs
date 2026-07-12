@@ -1,6 +1,6 @@
 use crate::{AllowedNodeNames, ConfigNode, ConfigValue, ConfigValueType, parse::SyntaxError};
 use miette::{Diagnostic, SourceSpan};
-use parsey::{Span, Spanned};
+use starryparse::{Span, Spanned};
 use std::borrow::Cow;
 use thiserror::Error;
 

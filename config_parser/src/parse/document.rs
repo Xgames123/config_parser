@@ -2,10 +2,10 @@ use crate::{
     ConfigNode, Document,
     parse::{Result, SyntaxError, parse_utils::skip_space_and_comments},
 };
-use parsey::Parsey;
+use starryparse::Parser;
 
 impl<'c> Document<'c> {
-    pub fn parse(parser: &mut Parsey<'c>) -> Result<Self> {
+    pub fn parse(parser: &mut Parser<'c>) -> Result<Self> {
         let mut nodes = Vec::new();
         skip_space_and_comments(parser, true)?;
 

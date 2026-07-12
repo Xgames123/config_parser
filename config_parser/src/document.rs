@@ -1,4 +1,4 @@
-use parsey::Parsey;
+use starryparse::Parser;
 
 use crate::{ConfigError, ConfigNode, ParseConfigNode, Result};
 
@@ -28,7 +28,7 @@ impl<'c> Document<'c> {
     /// # let parsed : MyType = parsed;
     ///```
     pub fn from_str(str: &'c str) -> Result<Self> {
-        let mut parser = Parsey::new(str);
+        let mut parser = Parser::new(str);
         Document::parse(&mut parser).map_err(|e| ConfigError::Syntax { inner: e })
     }
 

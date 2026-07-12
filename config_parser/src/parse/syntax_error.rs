@@ -1,7 +1,7 @@
 use std::num::{ParseFloatError, ParseIntError};
 
 use miette::{Diagnostic, SourceSpan};
-use parsey::Parsey;
+use starryparse::Parser;
 use thiserror::Error;
 
 use crate::parse::parse_utils::is_whitespace;
@@ -58,14 +58,14 @@ pub enum SyntaxError {
     },
 }
 impl SyntaxError {
-    pub fn expected<'c>(span: &mut Parsey<'c>, expected: &'static str) -> Self {
+    pub fn expected<'c>(span: &mut Parser<'c>, expected: &'static str) -> Self {
         Self::Expected {
             span: span.take_until_or_end(|c| is_whitespace(c)).span().into(),
             expected,
         }
     }
     pub fn expected_but_got<'c>(
-        span: &mut Parsey<'c>,
+        span: &mut Parser<'c>,
         expected: &'static str,
         got: &'static str,
         help: Option<&'static str>,

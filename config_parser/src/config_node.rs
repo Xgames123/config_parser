@@ -2,7 +2,7 @@ use crate::{
     AllowedNodeNames, ConfigError, ConfigValue, Document, ParseConfigNode, ParseConfigValue,
     Spanned,
 };
-use parsey::Span;
+use starryparse::Span;
 
 #[derive(Debug, PartialEq)]
 pub struct ConfigNode<'c> {

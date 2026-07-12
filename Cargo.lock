@@ -98,7 +98,7 @@ version = "1.0.0"
 dependencies = [
  "config_parser_derive",
  "miette",
- "parsey",
+ "starryparse",
  "thiserror",
 ]
 
@@ -286,13 +286,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d211803b9b6b570f68772237e415a029d5a50c65d382910b879fb19d3271f94d"
 
 [[package]]
-name = "parsey"
-version = "0.1.0"
-dependencies = [
- "miette",
-]
-
-[[package]]
 name = "proc-macro-error-attr2"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -378,6 +371,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "starryparse"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f1cc32e53915d48da47a426f12cd39492d6d1fdab64ff612ed48a88e2a5885a"
+dependencies = [
+ "miette",
 ]
 
 [[package]]

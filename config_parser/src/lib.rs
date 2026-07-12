@@ -11,7 +11,13 @@ pub mod parse;
 
 #[cfg(feature = "derive")]
 pub use config_parser_derive::{ConfigNode, ConfigValue};
-pub use {config_node::*, config_value::*, document::*, error::*, parsey::Spanned};
+pub use {
+    config_node::*,
+    config_value::*,
+    document::*,
+    error::*,
+    starryparse::{Span, Spanned},
+};
 
 /// Parses a config string into a T
 ///
