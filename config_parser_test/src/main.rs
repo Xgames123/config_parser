@@ -58,6 +58,7 @@ fn messure<O>(name: &str, f: impl FnOnce() -> O) -> O {
 mod bench {
     use std::hint::black_box;
     extern crate test;
+    use config_parser::ConfigNode;
     use test::Bencher;
 
     fn content() -> &'static str {
@@ -110,5 +111,90 @@ push {
     fn my_impl(b: &mut Bencher) {
         let content = content();
         b.iter(|| black_box(config_parser::Document::from_str(&content).unwrap()))
+    }
+
+    fn derive_bench_content() -> &'static str {
+        r#"
+package {
+  name "starpack"
+  entrypoint "/usr/bin/starpack"
+
+  content {
+      cargo bin="starpack" dest="${binary_path}"
+  }
+}
+"#
+    }
+
+    #[derive(knus::Decode, ConfigNode)]
+    #[config(node_name("entrypoint"))]
+    struct PackageEntrypoint {
+        #[knus(argument)]
+        #[config(argument)]
+        entrypoint: String,
+    }
+
+    #[derive(knus::Decode, ConfigNode)]
+    #[config(node_name("name"))]
+    struct PackageName {
+        #[knus(argument)]
+        #[config(argument)]
+        name: String,
+    }
+
+    #[derive(knus::Decode, ConfigNode)]
+    enum PackageNode {
+        Entrypoint(PackageEntrypoint),
+        Name(PackageName),
+    }
+
+    #[derive(knus::Decode, ConfigNode)]
+    struct CargoBuilder {
+        #[knus(property)]
+        bin: String,
+        #[knus(property)]
+        dest: String,
+    }
+
+    #[derive(knus::Decode, ConfigNode)]
+    enum PackageContentItem {
+        Cargo(CargoBuilder),
+    }
+
+    #[derive(knus::Decode, ConfigNode)]
+    #[config(node_name("content"))]
+    struct PackageContent {
+        #[knus(children)]
+        #[config(children)]
+        content_item: Vec<PackageContentItem>,
+    }
+
+    #[derive(knus::Decode, ConfigNode)]
+    struct Package {
+        #[knus(child)]
+        #[config(child)]
+        content: PackageContent,
+
+        #[knus(children)]
+        #[config(children)]
+        nodes: Vec<PackageNode>,
+    }
+
+    #[derive(knus::Decode, ConfigNode)]
+    struct File {
+        #[knus(child)]
+        #[config(child)]
+        package: Package,
+    }
+
+    #[bench]
+    fn knus_derive(b: &mut Bencher) {
+        let content = derive_bench_content();
+        b.iter(|| black_box(knus::parse::<File>("file.kdl", content).unwrap()));
+    }
+    #[bench]
+    fn config_parser_derive(b: &mut Bencher) {
+        let content = derive_bench_content();
+        b.iter(|| black_box(config_parser::from_str::<File>(content).unwrap()));
     }
 }

@@ -8,7 +8,7 @@ A fast, mostly-KDL-compatible configuration parser for Rust with serde-style der
 
 The existing KDL ecosystem has a few limitations:
 
-- [`knus`](https://crates.io/crates/knus) does not currently provide a general-purpose `#[knus(flatten)]` equivalent.
+- [`knus`](https://crates.io/crates/knus) does not currently provide a general-purpose `#[knus(flatten)]`.
 - Generic types can be awkward to work with in derive-based parsers.
 - [`facet-kdl`](https://crates.io/crates/facet-kdl) has been deprecated.
 
@@ -16,10 +16,11 @@ The existing KDL ecosystem has a few limitations:
 
 ## Features
 
-- Fast parser implementation (~25× faster than `libkdl` on my machine)
+- Fast parser implementation (~25× faster than `libkdl` and `knus` on my machine)
 - Serde-style derive macros
-- `#[config(flatten)]` support in most contexts
+- `#[config(flatten)]` support in almost all contexts
 - Fancy errors powered by `miette`
+- Generics support see `config_parser/examples/full.rs`
 - Source span support
 
 ## Roadmap
@@ -72,21 +73,30 @@ let parsed = config_parser::from_str(source_code).unwrap_or_else(|e| {
 
 ## Span Information
 
-`ParseConfigValue` is implemented for `parsey::Spanned<T>` (re-exported as `config_parser::Spanned`), allowing easy access span information:
+`ParseConfigValue` and `ParseConfigNode` are implemented for `parsey::Spanned<T>` (re-exported as `config_parser::Spanned`), allowing easy access span information:
 
 ```rust
 use config_parser::Spanned;
 
 #[derive(ConfigNode)]
+struct ChildNode;
+
+#[derive(ConfigNode)]
 struct MyNode {
     #[config(property)]
     my_value: Spanned<String>,
+
+    #[config(child)]
+    my_child: Spanned<ChildNode>
 }
+
 ```
 
 ## Benchmarks
 
-The following benchmark measures parsing the same configuration file using both `libkdl` and `config_parser`. the source of the benchmark is located at `config_parser_test/main.rs`
+The speed of configuration parsing doesn't matter in most cases except for if the configuration file is very large and needs to be read at startup by command line tools.
+
+The following benchmark measures parsing the same kdl file using both `libkdl` and `config_parser`.
 
 > **Note:** This is not a perfectly apples-to-apples comparison. `libkdl` supports additional features, including document editing capabilities, which may affect performance.
 
@@ -94,6 +104,17 @@ The following benchmark measures parsing the same configuration file using both 
 | --------------- | --------------------: |
 | `libkdl`        | 410,071 ns ± 6,903 ns |
 | `config_parser` |  16,219 ns ± 1,275 ns |
+
+This benchmark measures parsing the same configuration using the derive macros of both `config_parser` and `knus`.
+
+> **Note:** This is not a completely fair comparison because `knus` supports more kdl features than `config_parser`.
+
+| Crate           |                Mean Time |
+| --------------- | -----------------------: |
+| `config_parser` |   3,079.90 ns ± 16.96 ns |
+| `knus`          | 76,024.60 ns ± 364.10 ns |
+
+The source of both benchmarks is located at `config_parser_test/main.rs`.
 
 To reproduce the results:
 

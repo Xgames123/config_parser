@@ -1,3 +1,5 @@
+#![doc=include_str!("../../README.md")]
+
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::{rc::Rc, sync::Arc};

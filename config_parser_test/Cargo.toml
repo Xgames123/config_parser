@@ -10,3 +10,4 @@ repository.workspace = true
 miette={version="7.6.0", features=["fancy"]}
 config_parser={path="../config_parser", features=["derive"]}
 kdl={version="6.5.0"}
+knus="3.4.0"

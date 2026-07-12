@@ -1,7 +1,6 @@
+use config_parser::{ConfigNode, ParseConfigNode};
+use miette::Report;
 use std::path::PathBuf;
-
-use config_parser::{ConfigNode, ConfigValue, ParseConfigNode};
-use miette::{Error, Report};
 
 #[derive(Debug, ConfigNode, PartialEq)]
 struct Author {
