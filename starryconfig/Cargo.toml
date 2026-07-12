@@ -13,7 +13,7 @@ keywords.workspace = true
 miette = { version = "7.6.0" }
 starryparse= { version="1.0.1", features=["miette"] }
 thiserror = "2.0.18"
-starryconfig_derive = { path="../starryconfig_derive", optional=true }
+starryconfig_derive = { path="../starryconfig_derive", optional=true, version="1.0.0" }
 
 [features]
 default=["derive"]
