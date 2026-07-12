@@ -34,17 +34,17 @@ impl VariantAttributes {
     pub fn node_names(&self, variant_name: &Ident) -> TokenStream {
         match &self.name {
             VariantName::Any => {
-                quote! {config_parser::AllowedNodeNames::<()>::any()}
+                quote! {starryconfig::AllowedNodeNames::<()>::any()}
             }
             VariantName::FromVariant => {
                 let name = pascal_to_kebab(variant_name.to_string());
-                quote! {config_parser::AllowedNodeNames::<()>::from_single(#name)}
+                quote! {starryconfig::AllowedNodeNames::<()>::from_single(#name)}
             }
             VariantName::Custom(name) => {
-                quote! {config_parser::AllowedNodeNames::<()>::from_single(#name)}
+                quote! {starryconfig::AllowedNodeNames::<()>::from_single(#name)}
             }
             VariantName::FromType(ty) => {
-                quote! {<#ty as config_parser::ParseConfigNode>::allowed_node_names()}
+                quote! {<#ty as starryconfig::ParseConfigNode>::allowed_node_names()}
             }
         }
     }

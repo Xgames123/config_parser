@@ -1,5 +1,5 @@
 [package]
-name = "config_parser"
+name = "starryconfig"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -13,9 +13,9 @@ keywords.workspace = true
 miette = { version = "7.6.0" }
 starryparse= { version="1.0.1", features=["miette"] }
 thiserror = "2.0.18"
-config_parser_derive = { path="../config_parser_derive", optional=true }
+starryconfig_derive = { path="../starryconfig_derive", optional=true }
 
 [features]
 default=["derive"]
-derive=["dep:config_parser_derive"]
+derive=["dep:starryconfig_derive"]
 

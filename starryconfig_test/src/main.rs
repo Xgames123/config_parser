@@ -4,7 +4,7 @@ use std::{
     time::Instant,
 };
 
-use config_parser::Document;
+use starryconfig::Document;
 use miette::Report;
 
 #[cfg(test)]

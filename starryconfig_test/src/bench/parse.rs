@@ -51,5 +51,5 @@ fn libkdl_impl(b: &mut Bencher) {
 #[bench]
 fn my_impl(b: &mut Bencher) {
     let content = content();
-    b.iter(|| black_box(config_parser::Document::from_str(&content).unwrap()))
+    b.iter(|| black_box(starryconfig::Document::from_str(&content).unwrap()))
 }

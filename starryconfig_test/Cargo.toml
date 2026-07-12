@@ -1,5 +1,5 @@
 [package]
-name = "config_parser_test"
+name = "starryconfig_test"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -11,6 +11,6 @@ license.workspace = true
 
 [dependencies]
 miette={version="7.6.0", features=["fancy"]}
-config_parser={path="../config_parser", features=["derive"]}
+starryconfig={path="../starryconfig", features=["derive"]}
 kdl={version="6.5.0"}
 knus="3.4.0"

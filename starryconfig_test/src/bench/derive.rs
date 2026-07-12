@@ -2,7 +2,7 @@ use std::hint::black_box;
 extern crate test;
 use test::Bencher;
 
-#[derive(knus::Decode, config_parser::ConfigNode, Debug, PartialEq)]
+#[derive(knus::Decode, starryconfig::ConfigNode, Debug, PartialEq)]
 #[config(node_name("entrypoint"))]
 struct PackageEntrypoint {
     #[knus(argument)]
@@ -10,7 +10,7 @@ struct PackageEntrypoint {
     entrypoint: String,
 }
 
-#[derive(knus::Decode, config_parser::ConfigNode, Debug, PartialEq)]
+#[derive(knus::Decode, starryconfig::ConfigNode, Debug, PartialEq)]
 #[config(node_name("name"))]
 struct PackageName {
     #[knus(argument)]
@@ -18,13 +18,13 @@ struct PackageName {
     name: String,
 }
 
-#[derive(knus::Decode, config_parser::ConfigNode, Debug, PartialEq)]
+#[derive(knus::Decode, starryconfig::ConfigNode, Debug, PartialEq)]
 enum PackageNode {
     Entrypoint(PackageEntrypoint),
     Name(PackageName),
 }
 
-#[derive(knus::Decode, config_parser::ConfigNode, Debug, PartialEq)]
+#[derive(knus::Decode, starryconfig::ConfigNode, Debug, PartialEq)]
 struct CargoBuilder {
     #[knus(property)]
     bin: String,
@@ -32,12 +32,12 @@ struct CargoBuilder {
     dest: String,
 }
 
-#[derive(knus::Decode, config_parser::ConfigNode, Debug, PartialEq)]
+#[derive(knus::Decode, starryconfig::ConfigNode, Debug, PartialEq)]
 enum PackageContentItem {
     Cargo(CargoBuilder),
 }
 
-#[derive(knus::Decode, config_parser::ConfigNode, Debug, PartialEq)]
+#[derive(knus::Decode, starryconfig::ConfigNode, Debug, PartialEq)]
 #[config(node_name("content"))]
 struct PackageContent {
     #[knus(children)]
@@ -45,7 +45,7 @@ struct PackageContent {
     content_items: Vec<PackageContentItem>,
 }
 
-#[derive(knus::Decode, config_parser::ConfigNode, Debug, PartialEq)]
+#[derive(knus::Decode, starryconfig::ConfigNode, Debug, PartialEq)]
 struct Package {
     #[knus(child)]
     #[config(child)]
@@ -56,14 +56,14 @@ struct Package {
     nodes: Vec<PackageNode>,
 }
 
-#[derive(knus::Decode, config_parser::ConfigNode, Debug, PartialEq)]
+#[derive(knus::Decode, starryconfig::ConfigNode, Debug, PartialEq)]
 struct File {
     #[knus(child)]
     #[config(child)]
     package: Package,
 }
 
-fn derive_bench_content() -> &'static str {
+fn content() -> &'static str {
     r#"
 package {
   name "starpack"
@@ -76,7 +76,7 @@ package {
 "#
 }
 
-fn derive_bench_match(file: File) {
+fn check_ontent(file: File) {
     assert_eq!(
         file,
         File {
@@ -101,12 +101,12 @@ fn derive_bench_match(file: File) {
 }
 
 #[bench]
-fn knus_derive(b: &mut Bencher) {
-    let content = derive_bench_content();
-    b.iter(|| derive_bench_match(black_box(knus::parse::<File>("file.kdl", content).unwrap())));
+fn derive_knus(b: &mut Bencher) {
+    let content = content();
+    b.iter(|| check_ontent(black_box(knus::parse::<File>("file.kdl", content).unwrap())));
 }
 #[bench]
-fn config_parser_derive(b: &mut Bencher) {
-    let content = derive_bench_content();
-    b.iter(|| derive_bench_match(black_box(config_parser::from_str::<File>(content).unwrap())));
+fn derive_starryconfig(b: &mut Bencher) {
+    let content = content();
+    b.iter(|| check_ontent(black_box(starryconfig::from_str::<File>(content).unwrap())));
 }

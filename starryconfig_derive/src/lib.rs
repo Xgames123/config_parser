@@ -39,13 +39,13 @@ fn impl_config_node(input: DeriveInput) -> syn::Result<TokenStream> {
     let (allowed_node_names, self_init) = gen_code(&name, variant_attributes, &input.data)?;
 
     Ok(quote! {
-        impl<'c, #impl_generics> config_parser::ParseConfigNode<'c> for #name #ty_generics #where_clause {
+        impl<'c, #impl_generics> starryconfig::ParseConfigNode<'c> for #name #ty_generics #where_clause {
 
-            fn allowed_node_names() -> config_parser::AllowedNodeNames<impl Iterator<Item = &'static str>+Clone> {
+            fn allowed_node_names() -> starryconfig::AllowedNodeNames<impl Iterator<Item = &'static str>+Clone> {
                 #allowed_node_names
             }
 
-            fn consume_node(node: &mut config_parser::ConfigNode<'c>, terminate: bool) -> config_parser::Result<Self> {
+            fn consume_node(node: &mut starryconfig::ConfigNode<'c>, terminate: bool) -> starryconfig::Result<Self> {
                 let me = #self_init;
                 if terminate {
                     node.terminate()?;
@@ -85,8 +85,8 @@ fn impl_config_value(input: DeriveInput) -> syn::Result<TokenStream> {
     let code = gen_value_code(input.data)?;
 
     Ok(quote! {
-        impl<'c, #impl_generics> config_parser::ParseConfigValue<'c> for #name #ty_generics #where_clause {
-            fn consume_value(value: config_parser::Spanned<config_parser::ConfigValue<'c>>) -> config_parser::Result<Self> {
+        impl<'c, #impl_generics> starryconfig::ParseConfigValue<'c> for #name #ty_generics #where_clause {
+            fn consume_value(value: starryconfig::Spanned<starryconfig::ConfigValue<'c>>) -> starryconfig::Result<Self> {
                 #code
             }
         }
@@ -122,9 +122,9 @@ fn gen_value_code(data: Data) -> syn::Result<TokenStream> {
             }
 
             Ok(quote! {
-                match value.inner.as_str().ok_or(config_parser::ConfigError::type_error(&value, config_parser::ConfigValueType::String))? {
+                match value.inner.as_str().ok_or(starryconfig::ConfigError::type_error(&value, starryconfig::ConfigValueType::String))? {
                     #(#option_names => Ok(#option_constructors),)*
-                    val=>Err(config_parser::ConfigError::message(value.span, format!(concat!("Invalid value '{}'. Valid options are: ", #(#option_names),*), val)))
+                    val=>Err(starryconfig::ConfigError::message(value.span, format!(concat!("Invalid value '{}'. Valid options are: ", #(#option_names),*), val)))
                 }
             })
         }
@@ -169,7 +169,7 @@ fn gen_code(
                 })
                 .collect::<syn::Result<Vec<TokenStream>>>()?;
 
-            let variant_node_names = quote! {config_parser::AllowedNodeNames::<()>::empty()#(.combine(#variant_node_names))*};
+            let variant_node_names = quote! {starryconfig::AllowedNodeNames::<()>::empty()#(.combine(#variant_node_names))*};
 
             Ok((
                 quote! {
@@ -179,7 +179,7 @@ fn gen_code(
                     if false { unreachable!() }
                     #(#variants)*
                     else {
-                        return Err(config_parser::ConfigError::unexpected_node(node, Self::allowed_node_names()))
+                        return Err(starryconfig::ConfigError::unexpected_node(node, Self::allowed_node_names()))
                     }
                 },
             ))
@@ -200,23 +200,23 @@ fn gen_constructor(fields: &Fields) -> syn::Result<TokenStream> {
 
                 field_inits.push(match handeling {
                     FieldHandeling::Child => {
-                        quote! {#field: node.consume_optional_child_into::<#field_ty>(true)?.ok_or(config_parser::ConfigError::expected_children(node, <#field_ty>::allowed_node_names()))#default_handeling }
+                        quote! {#field: node.consume_optional_child_into::<#field_ty>(true)?.ok_or(starryconfig::ConfigError::expected_children(node, <#field_ty>::allowed_node_names()))#default_handeling }
                     }
                     FieldHandeling::Children => {
                         quote! {#field: node.consume_children_into::<_, #field_ty>()?}
                     }
                     FieldHandeling::Property(prop_name) => {
                         let field_name = prop_name.unwrap_or_else(|| field.to_string().into());
-                        quote! {#field: node.consume_optional_property_into::<#field_ty>(#field_name)?.ok_or(config_parser::ConfigError::expected_property(node, #field_name))#default_handeling }
+                        quote! {#field: node.consume_optional_property_into::<#field_ty>(#field_name)?.ok_or(starryconfig::ConfigError::expected_property(node, #field_name))#default_handeling }
                     }
                     FieldHandeling::Argument => {
-                        quote! {#field: node.consume_optional_argument_into::<#field_ty>()?.ok_or(config_parser::ConfigError::expected_argument(node))#default_handeling }
+                        quote! {#field: node.consume_optional_argument_into::<#field_ty>()?.ok_or(starryconfig::ConfigError::expected_argument(node))#default_handeling }
                     },
                     FieldHandeling::Arguments => {
                         quote! {#field: node.consume_arguments_into::<_, #field_ty>()? }
                     }
                     FieldHandeling::Flatten => {
-                        quote! {#field: config_parser::ParseConfigNode::consume_node(node, false)?}
+                        quote! {#field: starryconfig::ParseConfigNode::consume_node(node, false)?}
                     }
                     FieldHandeling::Skip => {
                         quote! {#field: std::default::Default::default()}
@@ -247,7 +247,7 @@ fn gen_constructor(fields: &Fields) -> syn::Result<TokenStream> {
                             "Only 1 field allowed in Tuple structs",
                         ));
                     }
-                    Ok(quote! {(config_parser::ParseConfigNode::consume_node(node, true)?)})
+                    Ok(quote! {(starryconfig::ParseConfigNode::consume_node(node, true)?)})
                 }
             }
         }

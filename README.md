@@ -1,8 +1,8 @@
-# config_parser
+# starryconfig
 
 A fast, mostly-KDL-compatible configuration parser for Rust with serde-style derive macros.
 
-`config_parser` focuses on ergonomic configuration parsing, good diagnostics, and features that are difficult to express with existing KDL libraries, such as robust flattening support and generic types.
+`starryconfig` focuses on ergonomic configuration parsing, good diagnostics, and features that are difficult to express with existing KDL libraries, such as robust flattening support and generic types.
 
 ## Why?
 
@@ -12,7 +12,7 @@ The existing KDL ecosystem has a few limitations:
 - Generic types can be awkward to work with in derive-based parsers.
 - [`facet-kdl`](https://crates.io/crates/facet-kdl) has been deprecated.
 
-`config_parser` exists to provide a more ergonomic alternative while remaining largely compatible with KDL syntax.
+`starryconfig` exists to provide a more ergonomic alternative while remaining largely compatible with KDL syntax.
 
 ## Features
 
@@ -20,7 +20,7 @@ The existing KDL ecosystem has a few limitations:
 - Serde-style derive macros
 - `#[config(flatten)]` support in almost all contexts
 - Fancy errors powered by `miette`
-- Generics support see `config_parser/examples/full.rs`
+- Generics support see `starryconfig/examples/full.rs`
 - Source span support
 
 ## Roadmap
@@ -58,17 +58,17 @@ To get the fancy error messages, enable the `fancy` feature of `miette` by addin
 miette = { version = "7.2.0", features = ["fancy"] }
 ```
 
-`config_parser::from_str` does not automatically attach source code to errors. To display fancy diagnostics, attach the source manually:
+`starryconfig::from_str` does not automatically attach source code to errors. To display fancy diagnostics, attach the source manually:
 
 ```rust
 use miette::Report;
 
-#[derive(config_parser::ConfigNode)]
+#[derive(starryconfig::ConfigNode)]
 struct MyNode;
 
 let source_code = "";
 
-let parsed : MyNode = config_parser::from_str(source_code).unwrap_or_else(|e| {
+let parsed : MyNode = starryconfig::from_str(source_code).unwrap_or_else(|e| {
     panic!(
         "{:?}",
         Report::from(e).with_source_code(source_code.to_string())
@@ -78,10 +78,10 @@ let parsed : MyNode = config_parser::from_str(source_code).unwrap_or_else(|e| {
 
 ## Span Information
 
-`ParseConfigValue` and `ParseConfigNode` are implemented for `starryparse::Spanned<T>` (re-exported as `config_parser::Spanned`), allowing easy access span information:
+`ParseConfigValue` and `ParseConfigNode` are implemented for `starryparse::Spanned<T>` (re-exported as `starryconfig::Spanned`), allowing easy access span information:
 
 ```rust
-use config_parser::{Spanned, ConfigNode};
+use starryconfig::{Spanned, ConfigNode};
 
 #[derive(ConfigNode)]
 struct ChildNode;
@@ -101,25 +101,25 @@ struct MyNode {
 
 The speed of configuration parsing doesn't matter in most cases except for if the configuration file is very large and needs to be read at startup by command line tools.
 
-The following benchmark measures parsing the same kdl file using both `libkdl` and `config_parser`.
+The following benchmark measures parsing the same kdl file using both `libkdl` and `starryconfig`.
 
 > **Note:** This is not a perfectly apples-to-apples comparison. `libkdl` supports additional features, including document editing capabilities, which may affect performance.
 
-| Crate           |             Mean Time |
-| --------------- | --------------------: |
-| `libkdl`        | 410,071 ns ± 6,903 ns |
-| `config_parser` |  16,219 ns ± 1,275 ns |
+| Crate          |             Mean Time |
+| -------------- | --------------------: |
+| `libkdl`       | 410,071 ns ± 6,903 ns |
+| `starryconfig` |  16,219 ns ± 1,275 ns |
 
-This benchmark measures parsing the same configuration using the derive macros of both `config_parser` and `knus`.
+This benchmark measures parsing the same configuration using the derive macros of both `starryconfig` and `knus`.
 
-> **Note:** This is not a completely fair comparison because `knus` supports more kdl features than `config_parser`.
+> **Note:** This is not a completely fair comparison because `knus` supports more kdl features than `starryconfig`.
 
-| Crate           |                Mean Time |
-| --------------- | -----------------------: |
-| `config_parser` |   3,079.90 ns ± 16.96 ns |
-| `knus`          | 76,024.60 ns ± 364.10 ns |
+| Crate          |                Mean Time |
+| -------------- | -----------------------: |
+| `starryconfig` |   3,079.90 ns ± 16.96 ns |
+| `knus`         | 76,024.60 ns ± 364.10 ns |
 
-The source of both benchmarks is located at `config_parser_test/main.rs`.
+The source of both benchmarks is located at `starryconfig_test/main.rs`.
 
 To reproduce the results:
 

@@ -1,4 +1,4 @@
-use config_parser::{ConfigNode, ConfigValue, Document};
+use starryconfig::{ConfigNode, ConfigValue, Document};
 use miette::Report;
 
 fn parse<'c>(code: &'c str) -> Document<'c> {
@@ -25,7 +25,7 @@ fn test_error(code: &str, expected_message: &str) {
         Ok(_) => panic!("test_error succeeded but should throw an error"),
         Err(e) => {
             let message = match &e {
-                config_parser::ConfigError::Syntax { inner } => inner.to_string(),
+                starryconfig::ConfigError::Syntax { inner } => inner.to_string(),
                 e => e.to_string(),
             };
 

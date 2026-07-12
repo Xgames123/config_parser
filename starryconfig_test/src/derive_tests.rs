@@ -1,4 +1,4 @@
-use config_parser::{ConfigNode, ParseConfigNode, from_str};
+use starryconfig::{ConfigNode, ParseConfigNode, from_str};
 
 fn parse_no_err<'c, T: ParseConfigNode<'c>>(code: &'c str) -> T {
     match from_str::<T>(code) {

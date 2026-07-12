@@ -1,4 +1,4 @@
-use config_parser::{ConfigNode, ParseConfigNode};
+use starryconfig::{ConfigNode, ParseConfigNode};
 use miette::Report;
 use std::path::PathBuf;
 
@@ -100,7 +100,7 @@ build {
     non-existant-step name="I don't exist"
 }
 
-package name="config_parser" {
+package name="starryconfig" {
         author "me"
 }
 
@@ -115,7 +115,7 @@ user name="other jef" passwd="pass"
 
 "#;
 
-    let config: Config = config_parser::from_str(source_code).unwrap_or_else(|e| {
+    let config: Config = starryconfig::from_str(source_code).unwrap_or_else(|e| {
         panic!(
             "{:?}",
             Report::from(e).with_source_code(source_code.to_string())
@@ -158,7 +158,7 @@ user name="other jef" passwd="pass"
             },
             packages: vec![
                 Named {
-                    name: "config_parser".into(),
+                    name: "starryconfig".into(),
                     inner: Package {
                         author: Author { value: "me".into() },
                         builders: vec![],

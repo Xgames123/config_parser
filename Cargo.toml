@@ -1,14 +1,14 @@
 [workspace]
 resolver="1"
 
-members=["config_parser", "config_parser_derive", "config_parser_test"]
+members=["starryconfig", "starryconfig_derive", "starryconfig_test"]
 
 [workspace.package]
 version = "1.0.0"
 authors = ["sibe <sibe at starssystems dot org>"]
 edition = "2024"
 description = "Parser and serde like derive macros for a mostly kdl compatible configuration format."
-repository = "https://github.com/Xgames123/config_parser"
+repository = "https://github.com/Xgames123/starryconfig"
 readme = "README.md"
 keywords = ["kdl", "parser", "parsing","configuration", "config", "derive"]
 categories = ["config", "parsing"]

@@ -93,35 +93,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "config_parser"
-version = "1.0.0"
-dependencies = [
- "config_parser_derive",
- "miette",
- "starryparse",
- "thiserror",
-]
-
-[[package]]
-name = "config_parser_derive"
-version = "1.0.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "config_parser_test"
-version = "1.0.0"
-dependencies = [
- "config_parser",
- "kdl",
- "knus",
- "miette",
-]
-
-[[package]]
 name = "errno"
 version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -371,6 +342,35 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "starryconfig"
+version = "1.0.0"
+dependencies = [
+ "miette",
+ "starryconfig_derive",
+ "starryparse",
+ "thiserror",
+]
+
+[[package]]
+name = "starryconfig_derive"
+version = "1.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "starryconfig_test"
+version = "1.0.0"
+dependencies = [
+ "kdl",
+ "knus",
+ "miette",
+ "starryconfig",
 ]
 
 [[package]]

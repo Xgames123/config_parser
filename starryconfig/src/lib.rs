@@ -10,7 +10,7 @@ mod error;
 pub mod parse;
 
 #[cfg(feature = "derive")]
-pub use config_parser_derive::{ConfigNode, ConfigValue};
+pub use starryconfig_derive::{ConfigNode, ConfigValue};
 pub use {
     config_node::*,
     config_value::*,
@@ -23,11 +23,11 @@ pub use {
 ///
 /// Note: You need to manually attach the miette source code to the error returned by this function.
 ///```rust
-///# #[derive(config_parser::ConfigNode)]
+///# #[derive(starryconfig::ConfigNode)]
 ///# struct MyType { }
 ///# let source_code = "";
 ///
-/// let parsed : MyType = config_parser::from_str(source_code).unwrap_or_else(|e| {
+/// let parsed : MyType = starryconfig::from_str(source_code).unwrap_or_else(|e| {
 ///     panic!(
 ///         "{:?}",
 ///         miette::Report::from(e).with_source_code(source_code.to_string())
