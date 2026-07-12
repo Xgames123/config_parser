@@ -1,3 +1,6 @@
+#!/bin/bash
+set -e
+
 VERSION=$(rg '^version ?= ?\"([0-9]\.[0-9]\.[0-9])\"$' -r '$1' Cargo.toml)
 DEP_VERSION=$(rg '^starryconfig_derive ?= ?\{.*version ?= ?\"([0-9]\.[0-9]\.[0-9])\".*\}$' -r '$1' starryconfig/Cargo.toml)
 
@@ -13,4 +16,7 @@ ARGS=""
 if [[ "$1" == "--check" ]] ; then
   ARGS="--dry-run"
 fi
+
+cargo +nightly test
+cargo doc --no-deps -p starryconfig
 cargo publish -p starryconfig_derive -p starryconfig $ARGS
