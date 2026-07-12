@@ -63,7 +63,12 @@ miette = { version = "7.2.0", features = ["fancy"] }
 ```rust
 use miette::Report;
 
-let parsed = config_parser::from_str(source_code).unwrap_or_else(|e| {
+#[derive(config_parser::ConfigNode)]
+struct MyNode;
+
+let source_code = "";
+
+let parsed : MyNode = config_parser::from_str(source_code).unwrap_or_else(|e| {
     panic!(
         "{:?}",
         Report::from(e).with_source_code(source_code.to_string())
@@ -76,7 +81,7 @@ let parsed = config_parser::from_str(source_code).unwrap_or_else(|e| {
 `ParseConfigValue` and `ParseConfigNode` are implemented for `parsey::Spanned<T>` (re-exported as `config_parser::Spanned`), allowing easy access span information:
 
 ```rust
-use config_parser::Spanned;
+use config_parser::{Spanned, ConfigNode};
 
 #[derive(ConfigNode)]
 struct ChildNode;
@@ -87,7 +92,7 @@ struct MyNode {
     my_value: Spanned<String>,
 
     #[config(child)]
-    my_child: Spanned<ChildNode>
+    my_child:  Spanned<ChildNode>
 }
 
 ```

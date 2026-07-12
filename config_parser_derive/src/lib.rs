@@ -205,7 +205,7 @@ fn gen_constructor(fields: &Fields) -> syn::Result<TokenStream> {
 
                 field_inits.push(match handeling {
                     FieldHandeling::Child => {
-                        quote! {#field: node.consume_optional_child_into::<#field_ty>(true)?.ok_or(config_parser::ConfigError::expected_children(node, #field_ty::allowed_node_names()))#default_handeling }
+                        quote! {#field: node.consume_optional_child_into::<#field_ty>(true)?.ok_or(config_parser::ConfigError::expected_children(node, <#field_ty>::allowed_node_names()))#default_handeling }
                     }
                     FieldHandeling::Children => {
                         quote! {#field: node.consume_children_into::<_, #field_ty>()?}

@@ -1,11 +1,8 @@
-use std::ops::{Deref, DerefMut};
-
-use parsey::Span;
-
 use crate::{
     AllowedNodeNames, ConfigError, ConfigValue, Document, ParseConfigNode, ParseConfigValue,
     Spanned,
 };
+use parsey::Span;
 
 #[derive(Debug, PartialEq)]
 pub struct ConfigNode<'c> {
