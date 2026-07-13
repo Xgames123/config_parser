@@ -208,6 +208,9 @@ fn gen_constructor(fields: &Fields) -> syn::Result<TokenStream> {
                     FieldHandeling::Property(prop_name) => {
                         let field_name = prop_name.unwrap_or_else(|| field.to_string().into());
                         quote! {#field: node.consume_optional_property_into::<#field_ty>(#field_name)?.ok_or(starryconfig::ConfigError::expected_property(node, #field_name))#default_handeling }
+                    },
+                    FieldHandeling::Properties => {
+                        quote! {#field: node.consume_properties_into::<_, _, #field_ty>()? }
                     }
                     FieldHandeling::Argument => {
                         quote! {#field: node.consume_optional_argument_into::<#field_ty>()?.ok_or(starryconfig::ConfigError::expected_argument(node))#default_handeling }

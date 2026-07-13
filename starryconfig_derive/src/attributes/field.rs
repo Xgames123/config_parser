@@ -31,6 +31,8 @@ impl FieldAttributes {
                             let str = content.parse::<LitStr>()?;
                             Some(FieldHandeling::Property(Some(str.value().into())))
                         }
+                    }else if meta.path.is_ident("properties") {
+                        Some(FieldHandeling::Properties)
                     }else if meta.path.is_ident("argument") {
                         Some(FieldHandeling::Argument)
                     }else if meta.path.is_ident("arguments") {
@@ -70,6 +72,7 @@ pub enum FieldHandeling {
     Child,
     Children,
     Property(Option<Box<str>>),
+    Properties,
     Argument,
     Arguments,
     Flatten,

@@ -1,6 +1,6 @@
-use starryconfig::{ConfigNode, ParseConfigNode};
 use miette::Report;
-use std::path::PathBuf;
+use starryconfig::{ConfigNode, ParseConfigNode};
+use std::{collections::HashMap, path::PathBuf};
 
 #[derive(Debug, ConfigNode, PartialEq)]
 struct Author {
@@ -85,6 +85,9 @@ struct Builder {
 
     #[config(property("out"))] // Rename a property
     output: PathBuf,
+
+    #[config(properties)]
+    extra_properties: HashMap<Box<str>, Box<str>>,
 }
 
 fn main() {
@@ -108,7 +111,7 @@ user name="jef" passwd="pass"
 
 package name="star" {
         author "also me"
-        cargo-builder out="/usr/bin/star"
+        cargo-builder out="/usr/bin/star" bin="star"
 }
 
 user name="other jef" passwd="pass"
@@ -144,7 +147,8 @@ user name="other jef" passwd="pass"
                         inner: BuildStep::RunBuilder {
                             builder: Builder {
                                 name: "cargo-builder".into(),
-                                output: "/test".into()
+                                output: "/test".into(),
+                                extra_properties: HashMap::new()
                             }
                         }
                     },
@@ -173,6 +177,7 @@ user name="other jef" passwd="pass"
                         builders: vec![Builder {
                             name: "cargo-builder".into(),
                             output: "/usr/bin/star".into(),
+                            extra_properties: HashMap::from_iter([("bin".into(), "star".into())])
                         }],
                     }
                 }

@@ -4,7 +4,7 @@ use crate::{
 };
 use starryparse::Span;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ConfigNode<'c> {
     pub(crate) arguments: Vec<Spanned<ConfigValue<'c>>>,
     pub(crate) argument_count: usize,
@@ -171,6 +171,22 @@ impl<'c> ConfigNode<'c> {
     ) -> Result<Spanned<ConfigValue<'c>>, ConfigError> {
         self.consume_optional_property(name)
             .ok_or(ConfigError::expected_property(self, name))
+    }
+
+    pub fn consume_properties_into<
+        K: From<&'c str>,
+        V: ParseConfigValue<'c>,
+        O: FromIterator<(K, V)>,
+    >(
+        &mut self,
+    ) -> Result<O, ConfigError> {
+        self.properties
+            .drain(..)
+            .filter_map(|prop| {
+                let (k, v) = prop?;
+                Some(ParseConfigValue::consume_value(v).map(|v| (k.into(), v)))
+            })
+            .collect::<Result<O, ConfigError>>()
     }
 
     pub fn consume_optional_argument(&mut self) -> Option<Spanned<ConfigValue<'c>>> {
